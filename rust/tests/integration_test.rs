@@ -1,9 +1,14 @@
-use awk_interpreter::ast::{Expr, Node, Stmt};
-use awk_interpreter::builtins::Env;
-use awk_interpreter::interp::Interp;
-use awk_interpreter::lexer::{Lexer, Token};
-use awk_interpreter::parser::Parser;
-use awk_interpreter::value::Value;
+use awk_rust::ast::{Expr, Node, Stmt};
+use awk_rust::builtins::Env;
+use awk_rust::interp::Interp;
+use awk_rust::lexer::{Lexer, Token};
+use awk_rust::parser::Parser;
+use awk_rust::value::Value;
+
+fn parse(input: &str) -> Node {
+    let mut p = Parser::new(Lexer::new(input));
+    p.parse().unwrap()
+}
 
 // ===================== LEXER TESTS =====================
 
@@ -158,9 +163,9 @@ fn lexer_field_expr_nf() {
 }
 
 #[test]
-fn lexer_unknown_char_becomes_ident() {
+fn lexer_invalid_char() {
     let mut l = Lexer::new("@");
-    assert_eq!(l.next_token(), Token::Ident("@".to_string()));
+    assert_eq!(l.next_token(), Token::Invalid('@'));
     assert_eq!(l.next_token(), Token::EOF);
 }
 
@@ -179,15 +184,10 @@ fn lexer_mixed_tokens_no_whitespace() {
 
 // ===================== PARSER TESTS =====================
 
-fn parse(input: &str) -> Node {
-    let mut p = Parser::new(Lexer::new(input));
-    p.parse()
-}
-
 #[test]
-fn parser_empty_program() {
-    let node = parse("");
-    assert_eq!(node, Node::Program(vec![]));
+fn parser_empty_input_fails() {
+    let mut p = Parser::new(Lexer::new(""));
+    assert!(p.parse().is_err());
 }
 
 #[test]
@@ -282,13 +282,21 @@ fn parser_print_string_and_field() {
 }
 
 #[test]
-fn parser_no_braces() {
-    let node = parse("print $1");
+fn parser_missing_brace_fails() {
+    let mut p = Parser::new(Lexer::new("print $1"));
+    assert!(p.parse().is_err());
+}
+
+#[test]
+fn parser_three_print_statements() {
+    let node = parse("{ print $1; print $2; print $3 }");
     assert_eq!(
         node,
-        Node::Program(vec![Stmt::Print(vec![Expr::FieldExpr(Box::new(
-            Expr::Num(1.0)
-        ))])])
+        Node::Program(vec![
+            Stmt::Print(vec![Expr::FieldExpr(Box::new(Expr::Num(1.0)))]),
+            Stmt::Print(vec![Expr::FieldExpr(Box::new(Expr::Num(2.0)))]),
+            Stmt::Print(vec![Expr::FieldExpr(Box::new(Expr::Num(3.0)))]),
+        ])
     );
 }
 
@@ -484,7 +492,7 @@ fn env_undefined_var_defaults_to_zero() {
 fn exec(program: &str, line: &str) -> String {
     let mut interp = Interp::new();
     let mut p = Parser::new(Lexer::new(program));
-    let node = p.parse();
+    let node = p.parse().unwrap();
     interp.exec(&node, line)
 }
 
@@ -559,7 +567,7 @@ fn interp_nr_increments_across_calls() {
     let program = "{ print NR, $1 }";
     let mut interp = Interp::new();
     let mut p = Parser::new(Lexer::new(program));
-    let node = p.parse();
+    let node = p.parse().unwrap();
 
     assert_eq!(interp.exec(&node, "alpha"), "1 alpha\n");
     assert_eq!(interp.exec(&node, "beta"), "2 beta\n");
@@ -571,7 +579,7 @@ fn interp_fields_update_each_line() {
     let program = "{ print $1 }";
     let mut interp = Interp::new();
     let mut p = Parser::new(Lexer::new(program));
-    let node = p.parse();
+    let node = p.parse().unwrap();
 
     assert_eq!(interp.exec(&node, "first_line"), "first_line\n");
     assert_eq!(interp.exec(&node, "second_line"), "second_line\n");
@@ -615,4 +623,10 @@ fn interp_field_expr_direct_construct() {
 fn interp_empty_line() {
     let result = exec("{ print NR, $1 }", "");
     assert_eq!(result, "1 \n");
+}
+
+#[test]
+fn interp_three_statements() {
+    let result = exec("{ print $1; print $2; print $3 }", "a b c");
+    assert_eq!(result, "a\nb\nc\n");
 }

@@ -1,5 +1,0 @@
-Line1 A
-
-Line2 B
-
-Line3 C

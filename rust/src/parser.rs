@@ -34,6 +34,9 @@ impl Parser {
                 Token::RBrace | Token::EOF => {
                     break;
                 }
+                Token::Semicolon => {
+                    self.advance();
+                }
                 Token::Print => {
                     stmts.push(self.parse_print()?);
                 }

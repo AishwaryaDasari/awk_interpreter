@@ -1,5 +1,0 @@
-Name,Dept,Salary
-Alice,Eng,95000
-Bob,Marketing,72000
-Carol,Eng,88000
-Dave,Sales,65000
