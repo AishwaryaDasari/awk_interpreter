@@ -16,11 +16,17 @@ impl Parser {
         self.curr = self.lexer.next_token();
     }
 
-    pub fn parse(&mut self) -> Node {
+    fn err_unexpected(&self) -> String {
+        format!("unexpected token: {:?}", self.curr)
+    }
+
+    pub fn parse(&mut self) -> Result<Node, String> {
         let mut stmts = Vec::new();
 
         if self.curr == Token::LBrace {
             self.advance();
+        } else {
+            return Err(self.err_unexpected());
         }
 
         loop {
@@ -29,18 +35,23 @@ impl Parser {
                     break;
                 }
                 Token::Print => {
-                    stmts.push(self.parse_print());
+                    stmts.push(self.parse_print()?);
                 }
                 _ => {
-                    self.advance();
+                    return Err(self.err_unexpected());
                 }
             }
         }
 
-        Node::Program(stmts)
+        if self.curr != Token::RBrace {
+            return Err(self.err_unexpected());
+        }
+        self.advance();
+
+        Ok(Node::Program(stmts))
     }
 
-    fn parse_print(&mut self) -> Stmt {
+    fn parse_print(&mut self) -> Result<Stmt, String> {
         self.advance();
         let mut exprs = Vec::new();
 
@@ -55,7 +66,7 @@ impl Parser {
                     self.advance();
                 }
                 _ => {
-                    exprs.push(self.parse_expr());
+                    exprs.push(self.parse_expr()?);
                     if self.curr == Token::Comma {
                         self.advance();
                     } else {
@@ -65,35 +76,37 @@ impl Parser {
             }
         }
 
-        Stmt::Print(exprs)
+        Ok(Stmt::Print(exprs))
     }
 
-    fn parse_expr(&mut self) -> Expr {
+    fn parse_expr(&mut self) -> Result<Expr, String> {
         match &self.curr.clone() {
             Token::Dollar => {
                 self.advance();
-                let inner = self.parse_expr();
-                Expr::FieldExpr(Box::new(inner))
+                let inner = self.parse_expr()?;
+                Ok(Expr::FieldExpr(Box::new(inner)))
             }
             Token::String(s) => {
                 let val = s.clone();
                 self.advance();
-                Expr::Str(val)
+                Ok(Expr::Str(val))
             }
             Token::Number(n) => {
                 let val = *n;
                 self.advance();
-                Expr::Num(val)
+                Ok(Expr::Num(val))
             }
             Token::Ident(s) => {
                 let name = s.clone();
                 self.advance();
-                Expr::Ident(name)
+                Ok(Expr::Ident(name))
             }
-            _ => {
+            Token::Invalid(c) => {
+                let ch = *c;
                 self.advance();
-                Expr::Ident(String::new())
+                Err(format!("invalid character: '{}'", ch))
             }
+            _ => Err(self.err_unexpected()),
         }
     }
 }

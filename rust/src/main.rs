@@ -24,7 +24,13 @@ fn main() {
 
     let lexer = Lexer::new(program);
     let mut parser = Parser::new(lexer);
-    let node = parser.parse();
+    let node = match parser.parse() {
+        Ok(n) => n,
+        Err(e) => {
+            eprintln!("syntax error: {}", e);
+            process::exit(1);
+        }
+    };
 
     if files.is_empty() {
         let stdin = io::stdin();
