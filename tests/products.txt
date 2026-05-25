@@ -1,0 +1,8 @@
+Widget A North 200 15.50
+Widget B South 150 22.00
+Gadget X East 300 45.00
+Gadget Y West 250 55.00
+Widget A East 180 15.50
+Gadget X North 220 45.00
+Widget B West 90 22.00
+Gadget Y South 310

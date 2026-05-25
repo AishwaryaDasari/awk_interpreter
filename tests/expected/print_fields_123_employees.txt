@@ -1,0 +1,8 @@
+Alice Engineering 95000
+Bob Marketing 72000
+Carol Engineering 88000
+Dave Sales 65000
+Eve Engineering 110000
+Frank Marketing 78000
+Grace Sales 71000
+Hank Engineering 92000

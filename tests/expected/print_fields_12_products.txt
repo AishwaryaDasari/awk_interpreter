@@ -1,0 +1,8 @@
+Widget A
+Widget B
+Gadget X
+Gadget Y
+Widget A
+Gadget X
+Widget B
+Gadget Y
