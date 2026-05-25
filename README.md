@@ -61,12 +61,3 @@ rust/src/
 
 ---
 
-### What we shall be learning
-
-**Enums and pattern matching** — the entire AST is a tree of Rust enums. Every node, expression, and statement is a variant. The evaluator is built entirely from `match` expressions over these enums.
-
-**Ownership and borrowing** — the interpreter holds mutable state (variables, fields, the current line) while also traversing immutable AST nodes. Getting this to compile without cloning everything teaches you how Rust's borrow checker actually thinks.
-
-**Error handling** — a real interpreter needs to report errors with line numbers and context. We use `Result<T, E>` and the `?` operator throughout the codebase.
-
-**Traits and generics** — the `Value` type (every AWK value is simultaneously a string and a number) implements `Display`, `From`, `PartialOrd`, and arithmetic operator traits.
