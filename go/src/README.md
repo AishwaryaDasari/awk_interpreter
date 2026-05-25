@@ -1,1 +1,0 @@
-create the awk interpreter with go
