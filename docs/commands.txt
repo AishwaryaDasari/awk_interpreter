@@ -1,3 +1,35 @@
-awk '{print}' file.txt - prints the entire file
-awk '{print $1, $2}' file.txt - prints first and second column
+awk '{ print }' file.txt
+    Print every line in full.
 
+awk '{ print $1 }' file.txt
+    Print the first field of each line.
+
+awk '{ print $2 }' file.txt
+    Print the second field of each line.
+
+awk '{ print $1, $2 }' file.txt
+    Print the first and second fields, space-separated.
+
+awk '{ print $1, $2, $3 }' file.txt
+    Print the first three fields.
+
+awk '{ print NF }' file.txt
+    Print the number of fields on each line.
+
+awk '{ print NR }' file.txt
+    Print the record (line) number of each line.
+
+awk '{ print $NF }' file.txt
+    Print the last field of each line.
+
+awk '{ print NR, $1 }' file.txt
+    Print the line number followed by the first field.
+
+awk '{ print "text", $1 }' file.txt
+    Print a string literal followed by the first field.
+
+awk '{ print 42 }' file.txt
+    Print a numeric literal on every line.
+
+awk '{ print $1; print $2 }' file.txt
+    Print the first field, then the second field on a new line.

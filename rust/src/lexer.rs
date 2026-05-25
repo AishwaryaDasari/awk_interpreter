@@ -11,6 +11,7 @@ pub enum Token {
     String(String),
     Number(f64),
     Ident(String),
+    Invalid(char),
     EOF,
 }
 
@@ -70,7 +71,7 @@ impl Lexer {
             'a'..='z' | 'A'..='Z' | '_' => self.read_ident(),
             _ => {
                 self.pos += 1;
-                Token::Ident(format!("{}", ch))
+                Token::Invalid(ch)
             }
         }
     }
