@@ -3,9 +3,9 @@ use std::fs;
 use std::io::{self, BufRead};
 use std::process;
 
-use awk_interpreter::interp::Interp;
-use awk_interpreter::lexer::Lexer;
-use awk_interpreter::parser::Parser;
+use awk_rust::interp::Interp;
+use awk_rust::lexer::Lexer;
+use awk_rust::parser::Parser;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -44,10 +44,15 @@ fn main() {
     } else {
         let mut interp = Interp::new();
         for file in &files {
-            let content = fs::read_to_string(file).unwrap_or_else(|e| {
-                eprintln!("error reading {}: {}", file, e);
-                String::new()
-            });
+            let content = match fs::read_to_string(file) {
+                Ok(c) => c,
+                Err(e) => {
+                    let err = e.to_string();
+                    let msg = err.split('(').next().unwrap_or("").trim();
+                    eprintln!("{}", msg);
+                    continue;
+                }
+            };
             for line in content.lines() {
                 let out = interp.exec(&node, line);
                 print!("{}", out);

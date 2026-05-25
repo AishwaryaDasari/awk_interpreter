@@ -22,12 +22,12 @@ source ~/.cargo/env
 ## Usage
 
 ```bash
-awk_interpreter '{print}' tests/test1.txt
-awk_interpreter '{print $1}' tests/test1.txt
-awk_interpreter '{print $1, $2}' tests/test1.txt
-awk_interpreter '{print $NF}' tests/test1.txt
-awk_interpreter '{print NR, NF, $0}' tests/test1.txt
-awk_interpreter '{print "hello", $1}' tests/test1.txt
+awk_rust '{print}' tests/test1.txt
+awk_rust '{print $1}' tests/test1.txt
+awk_rust '{print $1, $2}' tests/test1.txt
+awk_rust '{print $NF}' tests/test1.txt
+awk_rust '{print NR, NF, $0}' tests/test1.txt
+awk_rust '{print "hello", $1}' tests/test1.txt
 ```
 
 ## Reinstall after changes
