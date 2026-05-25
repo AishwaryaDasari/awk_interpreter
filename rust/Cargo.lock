@@ -3,5 +3,5 @@
 version = 3
 
 [[package]]
-name = "awk_interpreter"
+name = "awk_rust"
 version = "0.1.0"

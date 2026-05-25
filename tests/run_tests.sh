@@ -4,8 +4,8 @@
 # Usage: ./run_tests.sh [path-to-awk-interpreter-binary]
 #
 # If no binary path is given, it looks for:
-#   1. ../rust/target/release/awk_interpreter
-#   2. ../rust/target/debug/awk_interpreter
+#   1. ../rust/target/release/awk_rust
+#   2. ../rust/target/debug/awk_rust
 
 set -euo pipefail
 
@@ -13,10 +13,10 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BIN="${1:-}"
 
 if [ -z "$BIN" ]; then
-    if [ -f "$SCRIPT_DIR/../rust/target/release/awk_interpreter" ]; then
-        BIN="$SCRIPT_DIR/../rust/target/release/awk_interpreter"
-    elif [ -f "$SCRIPT_DIR/../rust/target/debug/awk_interpreter" ]; then
-        BIN="$SCRIPT_DIR/../rust/target/debug/awk_interpreter"
+    if [ -f "$SCRIPT_DIR/../rust/target/release/awk_rust" ]; then
+        BIN="$SCRIPT_DIR/../rust/target/release/awk_rust"
+    elif [ -f "$SCRIPT_DIR/../rust/target/debug/awk_rust" ]; then
+        BIN="$SCRIPT_DIR/../rust/target/debug/awk_rust"
     else
         echo "ERROR: awk_interpreter binary not found."
         echo "Build it first: cd rust && cargo build"
