@@ -1,4 +1,0 @@
-Name: Name
-Name: Sam
-Name: Ram
-Name: Cam
