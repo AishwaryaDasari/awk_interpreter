@@ -1,0 +1,12 @@
+Build an awk interpreter.
+Start with basic command and add more features.
+1. print
+2. Fields ($0, $n, $NF, $NR, NF, NR)
+3. BEGIN/END + regex patterns
+4. Variables and arithmetic
+5. Field separator (FS / -F)
+6. if/else + comparisons
+7. Loops
+8. Built-in string functions
+9. Arrays
+10. printf
