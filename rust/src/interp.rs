@@ -1,31 +1,74 @@
-use crate::ast::{Expr, Node, Stmt};
+use crate::ast::{Expr, Node, Pattern, Rule, Stmt};
 use crate::builtins::Env;
 use crate::value::Value;
 
 pub struct Interp {
     pub env: Env,
+    regex_cache: regex::Regex,
 }
 
 impl Interp {
     pub fn new() -> Self {
         Interp {
             env: Env::new(),
+            regex_cache: regex::Regex::new("").unwrap(),
         }
     }
 
-    pub fn exec(&mut self, node: &Node, line: &str) -> String {
-        self.env.set_line(line, " ");
+    pub fn exec_begin(&mut self, node: &Node) -> String {
+        let mut out = String::new();
         match node {
-            Node::Program(stmts) => {
-                let mut out = String::new();
-                for stmt in stmts {
-                    match stmt {
-                        Stmt::Print(exprs) => {
-                            self.exec_print(exprs, &mut out);
-                        }
+            Node::Program(rules) => {
+                for rule in rules {
+                    if let Rule::Begin(stmts) = rule {
+                        self.exec_stmts(stmts, &mut out);
                     }
                 }
-                out
+            }
+        }
+        out
+    }
+
+    pub fn exec_line(&mut self, node: &Node, line: &str) -> String {
+        self.env.set_line(line, " ");
+        let mut out = String::new();
+        match node {
+            Node::Program(rules) => {
+                for rule in rules {
+                    match rule {
+                        Rule::Pattern(pattern, stmts) => {
+                            if self.matches(pattern, line) {
+                                self.exec_stmts(stmts, &mut out);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+        out
+    }
+
+    pub fn exec_end(&mut self, node: &Node) -> String {
+        let mut out = String::new();
+        match node {
+            Node::Program(rules) => {
+                for rule in rules {
+                    if let Rule::End(stmts) = rule {
+                        self.exec_stmts(stmts, &mut out);
+                    }
+                }
+            }
+        }
+        out
+    }
+
+    fn exec_stmts(&mut self, stmts: &[Stmt], out: &mut String) {
+        for stmt in stmts {
+            match stmt {
+                Stmt::Print(exprs) => {
+                    self.exec_print(exprs, out);
+                }
             }
         }
     }
@@ -47,6 +90,20 @@ impl Interp {
             out.push_str(&part.as_str());
         }
         out.push('\n');
+    }
+
+    fn matches(&mut self, pattern: &Pattern, line: &str) -> bool {
+        match pattern {
+            Pattern::Regex(re) => {
+                if re.is_empty() {
+                    return true;
+                }
+                if let Ok(r) = regex::Regex::new(re) {
+                    self.regex_cache = r;
+                }
+                self.regex_cache.is_match(line)
+            }
+        }
     }
 
     fn eval_expr(&self, expr: &Expr) -> Value {

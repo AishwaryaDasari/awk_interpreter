@@ -1,6 +1,8 @@
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     Print,
+    Begin,
+    End,
     LBrace,
     RBrace,
     LParen,
@@ -10,6 +12,7 @@ pub enum Token {
     Semicolon,
     String(String),
     Number(f64),
+    Regex(String),
     Ident(String),
     Invalid(char),
     EOF,
@@ -66,6 +69,7 @@ impl Lexer {
                 self.pos += 1;
                 Token::Semicolon
             }
+            '/' => self.read_regex(),
             '"' => self.read_string(),
             '0'..='9' | '-' => self.read_number(),
             'a'..='z' | 'A'..='Z' | '_' => self.read_ident(),
@@ -80,6 +84,19 @@ impl Lexer {
         while self.pos < self.input.len() && self.input[self.pos].is_ascii_whitespace() {
             self.pos += 1;
         }
+    }
+
+    fn read_regex(&mut self) -> Token {
+        self.pos += 1;
+        let mut s = String::new();
+        while self.pos < self.input.len() && self.input[self.pos] != '/' {
+            s.push(self.input[self.pos]);
+            self.pos += 1;
+        }
+        if self.pos < self.input.len() {
+            self.pos += 1;
+        }
+        Token::Regex(s)
     }
 
     fn read_string(&mut self) -> Token {
@@ -124,6 +141,8 @@ impl Lexer {
         let s: String = self.input[start..self.pos].iter().collect();
         match s.as_str() {
             "print" => Token::Print,
+            "BEGIN" => Token::Begin,
+            "END" => Token::End,
             _ => Token::Ident(s),
         }
     }

@@ -32,17 +32,20 @@ fn main() {
         }
     };
 
+    let mut interp = Interp::new();
+
+    let begin_out = interp.exec_begin(&node);
+    print!("{}", begin_out);
+
     if files.is_empty() {
         let stdin = io::stdin();
-        let mut interp = Interp::new();
         for line in stdin.lock().lines() {
             if let Ok(l) = line {
-                let out = interp.exec(&node, &l);
+                let out = interp.exec_line(&node, &l);
                 print!("{}", out);
             }
         }
     } else {
-        let mut interp = Interp::new();
         for file in &files {
             let content = match fs::read_to_string(file) {
                 Ok(c) => c,
@@ -54,9 +57,12 @@ fn main() {
                 }
             };
             for line in content.lines() {
-                let out = interp.exec(&node, line);
+                let out = interp.exec_line(&node, line);
                 print!("{}", out);
             }
         }
     }
+
+    let end_out = interp.exec_end(&node);
+    print!("{}", end_out);
 }

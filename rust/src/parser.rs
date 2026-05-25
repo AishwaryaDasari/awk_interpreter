@@ -1,4 +1,4 @@
-use crate::ast::{Expr, Node, Stmt};
+use crate::ast::{Expr, Node, Pattern, Rule, Stmt};
 use crate::lexer::{Lexer, Token};
 
 pub struct Parser {
@@ -21,28 +21,56 @@ impl Parser {
     }
 
     pub fn parse(&mut self) -> Result<Node, String> {
-        let mut stmts = Vec::new();
+        let mut rules = Vec::new();
 
+        loop {
+            match &self.curr {
+                Token::EOF => break,
+                Token::Begin => {
+                    self.advance();
+                    let stmts = self.parse_block()?;
+                    rules.push(Rule::Begin(stmts));
+                }
+                Token::End => {
+                    self.advance();
+                    let stmts = self.parse_block()?;
+                    rules.push(Rule::End(stmts));
+                }
+                Token::Regex(re) => {
+                    let pattern = Pattern::Regex(re.clone());
+                    self.advance();
+                    let stmts = self.parse_block()?;
+                    rules.push(Rule::Pattern(pattern, stmts));
+                }
+                Token::LBrace => {
+                    let stmts = self.parse_block()?;
+                    rules.push(Rule::Pattern(Pattern::Regex("".to_string()), stmts));
+                }
+                _ => return Err(self.err_unexpected()),
+            }
+        }
+
+        Ok(Node::Program(rules))
+    }
+
+    fn parse_block(&mut self) -> Result<Vec<Stmt>, String> {
         if self.curr == Token::LBrace {
             self.advance();
         } else {
             return Err(self.err_unexpected());
         }
 
+        let mut stmts = Vec::new();
         loop {
             match &self.curr {
-                Token::RBrace | Token::EOF => {
-                    break;
-                }
+                Token::RBrace | Token::EOF => break,
                 Token::Semicolon => {
                     self.advance();
                 }
                 Token::Print => {
                     stmts.push(self.parse_print()?);
                 }
-                _ => {
-                    return Err(self.err_unexpected());
-                }
+                _ => return Err(self.err_unexpected()),
             }
         }
 
@@ -51,16 +79,12 @@ impl Parser {
         }
         self.advance();
 
-        Ok(Node::Program(stmts))
+        Ok(stmts)
     }
 
     fn parse_print(&mut self) -> Result<Stmt, String> {
         self.advance();
         let mut exprs = Vec::new();
-
-        if self.curr == Token::Comma {
-            self.advance();
-        }
 
         loop {
             match &self.curr {
