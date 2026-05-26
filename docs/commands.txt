@@ -193,3 +193,28 @@ awk 'BEGIN { FS = " " } { print $1, $2 }' file.txt
 
 awk 'BEGIN { FS = "" } { print $1 }' file.txt
     Empty FS: split each character into its own field.
+
+# --- Reading scripts from files (-f flag) ---
+
+awk -f script.awk file.txt
+    Read the AWK program from script.awk instead of the command line.
+
+awk -f script.awk
+    Read the program from a file and process stdin.
+
+# --- Setting variables with -v ---
+
+awk -v name=John '{ print name }' file.txt
+    Set variable `name` to "John" before execution. Accessible in all blocks.
+
+awk -v OFS=',' '{ print $1, $2 }' file.txt
+    Set built-in variable OFS (Output Field Separator) via -v.
+
+awk -v count=0 -v prefix=">>" '{ print prefix, $0 }' file.txt
+    Multiple -v flags can be used.
+
+# --- Comments ---
+
+awk '# this is a comment
+BEGIN { print "hello" }'
+    Lines starting with # are comments, ignored by the interpreter.
