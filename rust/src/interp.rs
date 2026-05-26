@@ -62,7 +62,7 @@ impl Interp {
     }
 
     pub fn exec_line(&mut self, node: &Node, line: &str) -> String {
-        self.env.set_line(line, " ");
+        self.env.set_line(line);
         let mut out = String::new();
         let Node::Program(rules) = node;
         for rule in rules {

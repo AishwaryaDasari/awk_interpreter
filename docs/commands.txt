@@ -170,3 +170,51 @@ awk '{ x = 10; x /= 2; print x }' file.txt
 
 awk '{ x = 10; x %= 3; print x }' file.txt
     Assign the remainder of x / 3 to x and print (1).
+
+# --- Field separator ---
+
+awk -F, '{ print $1 }' file.txt
+    Use comma as the field separator via the `-F` flag.
+
+awk -F: '{ print $1, $2 }' file.txt
+    Use colon as the field separator.
+
+awk 'BEGIN { FS = "," } { print $1 }' file.txt
+    Set the field separator by assigning the FS variable in a BEGIN block.
+
+awk 'BEGIN { FS = ":" } { print $2 }' file.txt
+    Set the field separator to colon via the FS variable.
+
+awk '{ print FS }' file.txt
+    Print the current field separator (default is a single space " ").
+
+awk 'BEGIN { FS = " " } { print $1, $2 }' file.txt
+    Default behavior: a single space as FS splits on any sequence of whitespace.
+
+awk 'BEGIN { FS = "" } { print $1 }' file.txt
+    Empty FS: split each character into its own field.
+
+# --- Reading scripts from files (-f flag) ---
+
+awk -f script.awk file.txt
+    Read the AWK program from script.awk instead of the command line.
+
+awk -f script.awk
+    Read the program from a file and process stdin.
+
+# --- Setting variables with -v ---
+
+awk -v name=John '{ print name }' file.txt
+    Set variable `name` to "John" before execution. Accessible in all blocks.
+
+awk -v OFS=',' '{ print $1, $2 }' file.txt
+    Set built-in variable OFS (Output Field Separator) via -v.
+
+awk -v count=0 -v prefix=">>" '{ print prefix, $0 }' file.txt
+    Multiple -v flags can be used.
+
+# --- Comments ---
+
+awk '# this is a comment
+BEGIN { print "hello" }'
+    Lines starting with # are comments, ignored by the interpreter.

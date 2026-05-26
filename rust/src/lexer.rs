@@ -236,6 +236,10 @@ impl Lexer {
                     Token::Invalid('|')
                 }
             }
+            '#' => {
+                self.skip_comment();
+                return self.next_token();
+            }
             '"' => self.read_string(),
             '0'..='9' => self.read_number(),
             'a'..='z' | 'A'..='Z' | '_' => self.read_ident(),
@@ -259,6 +263,12 @@ impl Lexer {
 
     fn skip_whitespace(&mut self) {
         while self.pos < self.input.len() && self.input[self.pos].is_ascii_whitespace() {
+            self.pos += 1;
+        }
+    }
+
+    fn skip_comment(&mut self) {
+        while self.pos < self.input.len() && self.input[self.pos] != '\n' {
             self.pos += 1;
         }
     }
