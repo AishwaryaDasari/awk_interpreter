@@ -1,0 +1,9 @@
+name: awk_crystal
+version: 0.1.0
+
+authors:
+  - AWK Interpreter
+
+targets:
+  awk:
+    main: src/awk.cr
