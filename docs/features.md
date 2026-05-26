@@ -6,14 +6,15 @@ Build an awk interpreter. Start with basic commands and incrementally add featur
 
 1. **print** — basic `{ print }` and `{ print expr, ... }`
 2. **Fields** — `$0`, `$n`, `$NF`, `$NR`, `NF`, `NR`
+3. **BEGIN/END blocks + regex patterns** — `BEGIN`/`END`/`BEGINFILE`/`ENDFILE`, `/pat/` patterns, `~`/`!~` operators, range patterns, ternary, parentheses, `!`
+4. **Comparisons** — `==`, `!=`, `<`, `<=`, `>`, `>=` (as expression patterns), `&&`, `||`
 
 ## Planned (in order)
 
-3. BEGIN/END blocks + regex patterns
-4. Variables and arithmetic
-5. Field separator (FS / `-F`)
-6. `if/else` + comparisons
-7. Loops (`for`, `while`)
-8. Built-in string functions
-9. Arrays
-10. `printf`
+5. Variables and arithmetic (`+`, `-`, `*`, `/`, `%`, assignment, `++`/`--`)
+6. Field separator (`FS` / `-F` flag)
+7. `if/else` statements
+8. Loops (`for`, `while`, `break`, `continue`, `next`, `exit`)
+9. Built-in string functions (`length`, `substr`, `gsub`, `split`, etc.)
+10. Arrays (associative) and `for-in`
+11. `printf`

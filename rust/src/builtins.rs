@@ -6,6 +6,7 @@ use crate::value::Value;
 pub struct Env {
     pub fields: Vec<Value>,
     pub nr: usize,
+    pub filename: String,
     pub vars: HashMap<String, Value>,
 }
 
@@ -14,8 +15,13 @@ impl Env {
         Env {
             fields: vec![],
             nr: 0,
+            filename: String::new(),
             vars: HashMap::new(),
         }
+    }
+
+    pub fn set_filename(&mut self, name: &str) {
+        self.filename = name.to_string();
     }
 
     pub fn set_line(&mut self, line: &str, field_sep: &str) {
@@ -45,6 +51,7 @@ impl Env {
         match name {
             "NF" => Value::Num((self.fields.len().saturating_sub(1)) as f64),
             "NR" => Value::Num(self.nr as f64),
+            "FILENAME" => Value::Str(self.filename.clone()),
             _ => self.vars.get(name).cloned().unwrap_or(Value::Num(0.0)),
         }
     }

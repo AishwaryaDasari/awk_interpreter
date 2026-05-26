@@ -38,8 +38,8 @@ fn main() {
     print!("{}", begin_out);
 
     if files.is_empty() {
-        let stdin = io::stdin();
-        for line in stdin.lock().lines() {
+        interp.env.set_filename("");
+        for line in io::stdin().lock().lines() {
             if let Ok(l) = line {
                 let out = interp.exec_line(&node, &l);
                 print!("{}", out);
@@ -47,6 +47,11 @@ fn main() {
         }
     } else {
         for file in &files {
+            interp.env.set_filename(file);
+
+            let bf_out = interp.exec_begin_file(&node);
+            print!("{}", bf_out);
+
             let content = match fs::read_to_string(file) {
                 Ok(c) => c,
                 Err(e) => {
@@ -56,10 +61,14 @@ fn main() {
                     continue;
                 }
             };
+            interp.in_range = false;
             for line in content.lines() {
                 let out = interp.exec_line(&node, line);
                 print!("{}", out);
             }
+
+            let ef_out = interp.exec_end_file(&node);
+            print!("{}", ef_out);
         }
     }
 

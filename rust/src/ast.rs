@@ -7,17 +7,40 @@ pub enum Node {
 pub enum Rule {
     Begin(Vec<Stmt>),
     End(Vec<Stmt>),
+    BeginFile(Vec<Stmt>),
+    EndFile(Vec<Stmt>),
     Pattern(Pattern, Vec<Stmt>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Pattern {
-    Regex(String),
+    Expr(Expr),
+    Range(Box<Expr>, Box<Expr>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
     Print(Vec<Expr>),
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum BinOpKind {
+    Eq,
+    Ne,
+    Lt,
+    Gt,
+    Le,
+    Ge,
+    And,
+    Or,
+    Match,
+    NotMatch,
+    Concat,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum UnaryOpKind {
+    Not,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -27,4 +50,7 @@ pub enum Expr {
     Ident(String),
     Str(String),
     Num(f64),
+    BinOp(Box<Expr>, BinOpKind, Box<Expr>),
+    UnaryOp(UnaryOpKind, Box<Expr>),
+    Ternary(Box<Expr>, Box<Expr>, Box<Expr>),
 }

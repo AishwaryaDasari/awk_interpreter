@@ -3,6 +3,8 @@ pub enum Token {
     Print,
     Begin,
     End,
+    BeginFile,
+    EndFile,
     LBrace,
     RBrace,
     LParen,
@@ -10,6 +12,19 @@ pub enum Token {
     Dollar,
     Comma,
     Semicolon,
+    Tilde,
+    BangTilde,
+    Eq,
+    Ne,
+    Lt,
+    Gt,
+    Le,
+    Ge,
+    And,
+    Or,
+    Not,
+    Question,
+    Colon,
     String(String),
     Number(f64),
     Regex(String),
@@ -33,13 +48,10 @@ impl Lexer {
 
     pub fn next_token(&mut self) -> Token {
         self.skip_whitespace();
-
         if self.pos >= self.input.len() {
             return Token::EOF;
         }
-
         let ch = self.input[self.pos];
-
         match ch {
             '{' => {
                 self.pos += 1;
@@ -68,6 +80,81 @@ impl Lexer {
             ';' => {
                 self.pos += 1;
                 Token::Semicolon
+            }
+            '?' => {
+                self.pos += 1;
+                Token::Question
+            }
+            ':' => {
+                self.pos += 1;
+                Token::Colon
+            }
+            '~' => {
+                self.pos += 1;
+                Token::Tilde
+            }
+            '!' => {
+                self.pos += 1;
+                if self.pos < self.input.len() {
+                    match self.input[self.pos] {
+                        '=' => {
+                            self.pos += 1;
+                            Token::Ne
+                        }
+                        '~' => {
+                            self.pos += 1;
+                            Token::BangTilde
+                        }
+                        _ => Token::Not,
+                    }
+                } else {
+                    Token::Not
+                }
+            }
+            '=' => {
+                self.pos += 1;
+                if self.pos < self.input.len() && self.input[self.pos] == '=' {
+                    self.pos += 1;
+                    Token::Eq
+                } else {
+                    Token::Invalid('=')
+                }
+            }
+            '>' => {
+                self.pos += 1;
+                if self.pos < self.input.len() && self.input[self.pos] == '=' {
+                    self.pos += 1;
+                    Token::Ge
+                } else {
+                    Token::Gt
+                }
+            }
+            '<' => {
+                self.pos += 1;
+                if self.pos < self.input.len() && self.input[self.pos] == '=' {
+                    self.pos += 1;
+                    Token::Le
+                } else {
+                    Token::Lt
+                }
+            }
+            '&' => {
+                self.pos += 1;
+                if self.pos < self.input.len() && self.input[self.pos] == '&' {
+                    self.pos += 1;
+                    Token::And
+                } else {
+                    Token::Invalid('&')
+                }
+            }
+            '|' => {
+                self.pos += 1;
+                if self.pos < self.input.len() && self.input[self.pos] == '|' {
+                    self.pos += 1;
+                    Token::Or
+                } else {
+                    Token::Invalid('|')
+                }
             }
             '/' => self.read_regex(),
             '"' => self.read_string(),
@@ -143,6 +230,8 @@ impl Lexer {
             "print" => Token::Print,
             "BEGIN" => Token::Begin,
             "END" => Token::End,
+            "BEGINFILE" => Token::BeginFile,
+            "ENDFILE" => Token::EndFile,
             _ => Token::Ident(s),
         }
     }
