@@ -33,3 +33,77 @@ awk '{ print 42 }' file.txt
 
 awk '{ print $1; print $2 }' file.txt
     Print the first field, then the second field on a new line.
+
+# --- BEGIN / END blocks ---
+
+awk 'BEGIN { print "Start" } { print } END { print "Done" }' file.txt
+    Print a header before any input, each line, and a footer after all input.
+
+awk 'BEGINFILE { print "Reading", FILENAME } { print } ENDFILE { print "Finished" }' file.txt
+    Run actions at the start and end of each input file.
+
+# --- Regex patterns ---
+
+awk '/Sam/ { print }' file.txt
+    Print lines matching the regex /Sam/.
+
+awk '/^S/ { print }' file.txt
+    Print lines starting with "S".
+
+awk '/a$/ { print }' file.txt
+    Print lines ending with "a".
+
+awk '!/error/ { print }' file.txt
+    Print lines that do NOT match /error/.
+
+awk '$1 ~ /^S/ { print }' file.txt
+    Print lines where the first field matches /^S/.
+
+awk '$1 !~ /Sam/ { print }' file.txt
+    Print lines where the first field does NOT match /Sam/.
+
+# --- Comparison operators ---
+
+awk '$2 > 70 { print $1 }' file.txt
+    Print the first field when the second field is greater than 70.
+
+awk '$2 >= 50 { print $1 }' file.txt
+    Print the first field when the second field is at least 50.
+
+awk '$2 < 50 { print $1 }' file.txt
+    Print the first field when the second field is less than 50.
+
+awk '$2 <= 50 { print $1 }' file.txt
+    Print the first field when the second field is at most 50.
+
+awk '$1 == "Sam" { print }' file.txt
+    Print lines where the first field equals "Sam".
+
+awk '$1 != "Sam" { print }' file.txt
+    Print lines where the first field is not "Sam".
+
+# --- Logical operators ---
+
+awk '$1 > 10 && $2 < 20 { print }' file.txt
+    Print lines where both conditions are true (AND).
+
+awk '$1 == "A" || $1 == "B" { print }' file.txt
+    Print lines where either condition is true (OR).
+
+# --- Ternary operator ---
+
+awk '{ print $2 > 50 ? "Pass" : "Fail" }' file.txt
+    Print "Pass" or "Fail" based on the second field's value.
+
+# --- Parenthesized expressions ---
+
+awk '($1 > 10 && $2 < 20) { print }' file.txt
+    Use parentheses to group conditions.
+
+# --- Range patterns ---
+
+awk '/start/,/end/ { print }' file.txt
+    Print lines from the first match of /start/ through the first match of /end/.
+
+awk '$1 == "start", $1 == "end" { print }' file.txt
+    Print lines from where $1 equals "start" through where $1 equals "end".
