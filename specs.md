@@ -274,11 +274,11 @@ END PROCEDURE
 
 | # | Feature | Rust | Go | Crystal |
 |---|---------|------|----|---------|
-| 1 | print | ✅ Done | ✅ Done | 🔲 Planned |
-| 2 | Fields | ✅ Done | ✅ Done | 🔲 Planned |
-| 3 | BEGIN / END + regex patterns | 🔲 Planned | 🔲 Planned | 🔲 Planned |
-| 4 | Variables and arithmetic | 🔲 Planned | 🔲 Planned | 🔲 Planned |
-| 5 | Field separator | 🔲 Planned | 🔲 Planned | 🔲 Planned |
+| 1 | print | ✅ Done | ✅ Done | ✅ Done |
+| 2 | Fields | ✅ Done | ✅ Done | ✅ Done |
+| 3 | BEGIN / END + regex patterns | ✅ Done | 🔲 Planned | ✅ Done |
+| 4 | Variables and arithmetic | ✅ Done | 🔲 Planned | ✅ Done |
+| 5 | Field separator | ✅ Done | ✅ Done | ✅ Done |
 | 6 | if / else | 🔲 Planned | 🔲 Planned | 🔲 Planned |
 | 7 | Loops | 🔲 Planned | 🔲 Planned | 🔲 Planned |
 | 8 | Built-in string functions | 🔲 Planned | 🔲 Planned | 🔲 Planned |
