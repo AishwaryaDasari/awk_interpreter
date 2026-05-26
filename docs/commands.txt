@@ -107,3 +107,66 @@ awk '/start/,/end/ { print }' file.txt
 
 awk '$1 == "start", $1 == "end" { print }' file.txt
     Print lines from where $1 equals "start" through where $1 equals "end".
+
+# --- Variables and assignment ---
+
+awk '{ x = $2; print x }' file.txt
+    Assign the second field to variable x and print it.
+
+awk '{ total += $2 } END { print total }' file.txt
+    Sum up the second field across all lines, then print the total.
+
+awk '{ count++ } END { print count }' file.txt
+    Count the number of lines processed using the increment operator.
+
+awk 'BEGIN { x = 5; print ++x }'
+    Prefix increment: increment x first, then print (prints 6).
+
+awk 'BEGIN { x = 5; print x++; print x }'
+    Postfix increment: print x first (5), then increment (now 6).
+
+awk 'BEGIN { x = 5; print --x }'
+    Prefix decrement: decrement x first, then print (prints 4).
+
+awk 'BEGIN { x = 5; x--; print x }'
+    Postfix decrement: print x first (5), then decrement (now 4).
+
+# --- Arithmetic operators ---
+
+awk '{ print $2 + 10 }' file.txt
+    Add 10 to the second field of each line.
+
+awk '{ print $2 - 5 }' file.txt
+    Subtract 5 from the second field.
+
+awk '{ print $2 * 2 }' file.txt
+    Multiply the second field by 2.
+
+awk '{ print $2 / 2 }' file.txt
+    Divide the second field by 2.
+
+awk '{ print $2 % 3 }' file.txt
+    Modulo: print the remainder of the second field divided by 3.
+
+awk '{ x = $2 * 2; print x }' file.txt
+    Assign an arithmetic expression to a variable and print it.
+
+awk '{ print -$2 }' file.txt
+    Unary minus: negate the second field.
+
+# --- Compound assignment operators ---
+
+awk '{ x = 10; x += 5; print x }' file.txt
+    Add 5 to x and print the result (15).
+
+awk '{ x = 10; x *= 3; print x }' file.txt
+    Multiply x by 3 and print the result (30).
+
+awk '{ x = 10; x -= 2; print x }' file.txt
+    Subtract 2 from x and print the result (8).
+
+awk '{ x = 10; x /= 2; print x }' file.txt
+    Divide x by 2 and print the result (5).
+
+awk '{ x = 10; x %= 3; print x }' file.txt
+    Assign the remainder of x / 3 to x and print (1).

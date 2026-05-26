@@ -21,10 +21,16 @@ pub enum Pattern {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Stmt {
     Print(Vec<Expr>),
+    Expr(Expr),
 }
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum BinOpKind {
+    Add,
+    Sub,
+    Mul,
+    Div,
+    Mod,
     Eq,
     Ne,
     Lt,
@@ -40,6 +46,7 @@ pub enum BinOpKind {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum UnaryOpKind {
+    Neg,
     Not,
 }
 
@@ -53,4 +60,8 @@ pub enum Expr {
     BinOp(Box<Expr>, BinOpKind, Box<Expr>),
     UnaryOp(UnaryOpKind, Box<Expr>),
     Ternary(Box<Expr>, Box<Expr>, Box<Expr>),
+    Assign(String, Box<Expr>),
+    AssignOp(BinOpKind, String, Box<Expr>),
+    Incr(String, bool),
+    Decr(String, bool),
 }
