@@ -21,17 +21,38 @@ fn needs_input(node: &Node) -> bool {
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    if args.len() < 2 {
+    let mut i = 1;
+    let mut field_sep = None;
+
+    while i < args.len() && args[i].starts_with('-') {
+        let arg = &args[i];
+        if arg == "-F" {
+            i += 1;
+            if i < args.len() {
+                field_sep = Some(args[i].clone());
+                i += 1;
+            } else {
+                eprintln!("error: -F requires an argument");
+                process::exit(1);
+            }
+        } else if arg.starts_with("-F") {
+            let sep = arg[2..].to_string();
+            field_sep = Some(sep);
+            i += 1;
+        } else {
+            eprintln!("unknown option: {}", arg);
+            process::exit(1);
+        }
+    }
+
+    if i >= args.len() {
         eprintln!("usage: awk '{{print}}' file.txt");
         process::exit(1);
     }
 
-    let program = &args[1];
-    let files: Vec<&str> = if args.len() > 2 {
-        args[2..].iter().map(|s| s.as_str()).collect()
-    } else {
-        vec![]
-    };
+    let program = &args[i];
+    i += 1;
+    let files: Vec<&str> = args[i..].iter().map(|s| s.as_str()).collect();
 
     let lexer = Lexer::new(program);
     let mut parser = Parser::new(lexer);
@@ -44,6 +65,10 @@ fn main() {
     };
 
     let mut interp = Interp::new();
+
+    if let Some(sep) = field_sep {
+        interp.env.fs = sep;
+    }
 
     let begin_out = interp.exec_begin(&node);
     print!("{}", begin_out);
