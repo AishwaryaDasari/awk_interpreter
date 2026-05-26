@@ -12,7 +12,8 @@ class Parser
     case @curr.kind
     when TokenKind::String, TokenKind::Number, TokenKind::LParen,
          TokenKind::Dollar, TokenKind::Ident, TokenKind::Regex,
-         TokenKind::Not
+         TokenKind::Not, TokenKind::Plus, TokenKind::Minus,
+         TokenKind::Incr, TokenKind::Decr
       true
     else
       false
@@ -71,20 +72,72 @@ class Parser
 
   private def parse_block : Array(Stmt)
     expect(TokenKind::LBrace)
+    stmts = parse_stmts_until(TokenKind::RBrace)
+    expect(TokenKind::RBrace)
+    stmts
+  end
+
+  private def parse_stmts_until(end_kind : TokenKind) : Array(Stmt)
     stmts = [] of Stmt
     loop do
       case @curr.kind
-      when TokenKind::RBrace, TokenKind::EOF
+      when end_kind, TokenKind::EOF
         break
       when TokenKind::Semicolon
         advance
+      when TokenKind::RBrace
+        break
       when TokenKind::Print
         stmts << parse_print
+      when TokenKind::Printf
+        stmts << parse_printf
+      when TokenKind::If
+        stmts << parse_if
+      when TokenKind::While
+        stmts << parse_while
+      when TokenKind::For
+        stmts << parse_for
+      when TokenKind::Break
+        advance
+        stmts << BreakStmt.new
+        if @curr.kind == TokenKind::Semicolon
+          advance
+        end
+      when TokenKind::Continue
+        advance
+        stmts << ContinueStmt.new
+        if @curr.kind == TokenKind::Semicolon
+          advance
+        end
+      when TokenKind::Next
+        advance
+        stmts << NextStmt.new
+        if @curr.kind == TokenKind::Semicolon
+          advance
+        end
+      when TokenKind::Exit
+        advance
+        expr = @curr.kind == TokenKind::Semicolon || @curr.kind == end_kind ? nil : parse_expr
+        stmts << ExitStmt.new(expr)
+        if @curr.kind == TokenKind::Semicolon
+          advance
+        end
+      when TokenKind::Delete
+        stmts << parse_delete
+      when TokenKind::LBrace
+        stmts.concat(parse_block)
       else
-        raise err_unexpected
+        if can_start_expr?
+          expr = parse_expr
+          stmts << ExprStmt.new(expr)
+          if @curr.kind == TokenKind::Semicolon
+            advance
+          end
+        else
+          raise err_unexpected
+        end
       end
     end
-    expect(TokenKind::RBrace)
     stmts
   end
 
@@ -109,8 +162,235 @@ class Parser
     PrintStmt.new(exprs)
   end
 
+  private def parse_printf : Stmt
+    advance
+    has_parens = @curr.kind == TokenKind::LParen
+    if has_parens
+      advance
+    end
+    fmt = parse_expr
+    args = [] of Expr
+    while @curr.kind == TokenKind::Comma
+      advance
+      args << parse_expr
+    end
+    if has_parens
+      expect(TokenKind::RParen)
+    end
+    PrintfStmt.new(fmt, args)
+  end
+
+  private def parse_if : Stmt
+    advance
+    expect(TokenKind::LParen)
+    cond = parse_expr
+    expect(TokenKind::RParen)
+    then_branch = parse_single_stmt_or_block
+    if @curr.kind == TokenKind::Semicolon
+      advance
+    end
+    else_branch = nil
+    if @curr.kind == TokenKind::Else
+      advance
+      if @curr.kind == TokenKind::If
+        else_branch = [parse_if] of Stmt
+      else
+        else_branch = parse_single_stmt_or_block
+      end
+    end
+    IfStmt.new(cond, then_branch, else_branch)
+  end
+
+  private def parse_while : Stmt
+    advance
+    expect(TokenKind::LParen)
+    cond = parse_expr
+    expect(TokenKind::RParen)
+    body = parse_single_stmt_or_block
+    WhileStmt.new(cond, body)
+  end
+
+  private def parse_for : Stmt
+    advance
+    expect(TokenKind::LParen)
+
+    if @curr.kind == TokenKind::Ident && peek_for_in?
+      var = @curr.str_value || ""
+      advance
+      expect(TokenKind::In)
+      array_name = parse_expr
+      if array_name.is_a?(IdentExpr)
+        expect(TokenKind::RParen)
+        body = parse_single_stmt_or_block
+        return ForInStmt.new(var, array_name.name, body)
+      else
+        raise "expected array name after 'in'"
+      end
+    end
+
+    init = nil
+    if @curr.kind != TokenKind::Semicolon
+      if can_start_expr?
+        init_expr = parse_expr
+        init = ExprStmt.new(init_expr)
+      end
+    end
+    expect(TokenKind::Semicolon)
+
+    cond = nil
+    if @curr.kind != TokenKind::Semicolon
+      if can_start_expr?
+        cond = parse_expr
+      end
+    end
+    expect(TokenKind::Semicolon)
+
+    update = nil
+    if @curr.kind != TokenKind::RParen
+      if can_start_expr?
+        update = parse_expr
+      end
+    end
+    expect(TokenKind::RParen)
+
+    body = parse_single_stmt_or_block
+    ForStmt.new(init, cond, update, body)
+  end
+
+  private def peek_for_in? : Bool
+    saved_pos = @lexer.pos
+    saved_curr = @curr
+    begin
+      advance
+      result = @curr.kind == TokenKind::In
+      @lexer.pos = saved_pos
+      @curr = saved_curr
+      result
+    rescue
+      @lexer.pos = saved_pos
+      @curr = saved_curr
+      false
+    end
+  end
+
+  private def parse_delete : Stmt
+    advance
+    name = @curr.str_value || ""
+    expect(TokenKind::Ident)
+    if @curr.kind == TokenKind::LBracket
+      advance
+      index = parse_expr
+      expect(TokenKind::RBracket)
+      DeleteStmt.new(name, index)
+    else
+      DeleteStmt.new(name)
+    end
+  end
+
+  private def parse_single_stmt_or_block : Array(Stmt)
+    if @curr.kind == TokenKind::LBrace
+      parse_block
+    else
+      stmt = parse_single_stmt
+      [stmt]
+    end
+  end
+
+  private def parse_single_stmt : Stmt
+    case @curr.kind
+    when TokenKind::Print
+      parse_print
+    when TokenKind::Printf
+      parse_printf
+    when TokenKind::If
+      parse_if
+    when TokenKind::While
+      parse_while
+    when TokenKind::For
+      parse_for
+    when TokenKind::Break
+      advance
+      BreakStmt.new
+    when TokenKind::Continue
+      advance
+      ContinueStmt.new
+    when TokenKind::Next
+      advance
+      NextStmt.new
+    when TokenKind::Exit
+      advance
+      expr = parse_expr rescue nil
+      ExitStmt.new(expr)
+    when TokenKind::Delete
+      parse_delete
+    else
+      expr = parse_expr
+      ExprStmt.new(expr)
+    end
+  end
+
   private def parse_expr : Expr
-    parse_ternary
+    parse_assign
+  end
+
+  private def parse_assign : Expr
+    expr = parse_ternary
+    if @curr.kind == TokenKind::Assign
+      advance
+      rhs = parse_assign
+      if expr.is_a?(IdentExpr)
+        return AssignExpr.new(expr.name, rhs)
+      elsif expr.is_a?(ArrayAccessExpr)
+        return ArrayAssignExpr.new(expr.name, expr.index, rhs)
+      elsif expr.is_a?(FieldExpr)
+        return FieldAssignExpr.new(expr.index, rhs)
+      elsif expr.is_a?(FieldDynExpr)
+        return FieldDynAssignExpr.new(expr.inner, rhs)
+      else
+        raise "invalid assignment target"
+      end
+    elsif @curr.kind == TokenKind::PlusAssign
+      advance
+      rhs = parse_assign
+      if expr.is_a?(IdentExpr)
+        return AssignOpExpr.new(expr.name, BinOpKind::Add, rhs)
+      else
+        raise "invalid assignment target"
+      end
+    elsif @curr.kind == TokenKind::MinusAssign
+      advance
+      rhs = parse_assign
+      if expr.is_a?(IdentExpr)
+        return AssignOpExpr.new(expr.name, BinOpKind::Sub, rhs)
+      else
+        raise "invalid assignment target"
+      end
+    elsif @curr.kind == TokenKind::StarAssign
+      advance
+      rhs = parse_assign
+      if expr.is_a?(IdentExpr)
+        return AssignOpExpr.new(expr.name, BinOpKind::Mul, rhs)
+      else
+        raise "invalid assignment target"
+      end
+    elsif @curr.kind == TokenKind::SlashAssign
+      advance
+      rhs = parse_assign
+      if expr.is_a?(IdentExpr)
+        return AssignOpExpr.new(expr.name, BinOpKind::Div, rhs)
+      else
+        raise "invalid assignment target"
+      end
+    elsif @curr.kind == TokenKind::PercentAssign
+      advance
+      rhs = parse_assign
+      if expr.is_a?(IdentExpr)
+        return AssignOpExpr.new(expr.name, BinOpKind::Mod, rhs)
+      else
+        raise "invalid assignment target"
+      end
+    end
+    expr
   end
 
   private def parse_ternary : Expr
@@ -179,21 +459,103 @@ class Parser
   end
 
   private def parse_concat : Expr
-    expr = parse_unary
+    expr = parse_addsub
     while can_start_expr?
-      rhs = parse_unary
+      rhs = parse_addsub
       expr = BinOpExpr.new(expr, BinOpKind::Concat, rhs)
     end
     expr
   end
 
+  private def parse_addsub : Expr
+    expr = parse_muldiv
+    while @curr.kind == TokenKind::Plus || @curr.kind == TokenKind::Minus
+      kind = @curr.kind == TokenKind::Plus ? BinOpKind::Add : BinOpKind::Sub
+      advance
+      rhs = parse_muldiv
+      expr = BinOpExpr.new(expr, kind, rhs)
+    end
+    expr
+  end
+
+  private def parse_muldiv : Expr
+    expr = parse_pow
+    while @curr.kind == TokenKind::Star || @curr.kind == TokenKind::Slash || @curr.kind == TokenKind::Percent
+      kind = case @curr.kind
+             when TokenKind::Star   then BinOpKind::Mul
+             when TokenKind::Slash  then BinOpKind::Div
+             when TokenKind::Percent then BinOpKind::Mod
+             else                        BinOpKind::Mul
+             end
+      advance
+      rhs = parse_pow
+      expr = BinOpExpr.new(expr, kind, rhs)
+    end
+    expr
+  end
+
+  private def parse_pow : Expr
+    expr = parse_unary
+    while @curr.kind == TokenKind::Caret
+      advance
+      rhs = parse_unary
+      expr = BinOpExpr.new(expr, BinOpKind::Pow, rhs)
+    end
+    expr
+  end
+
   private def parse_unary : Expr
-    if @curr.kind == TokenKind::Not
+    case @curr.kind
+    when TokenKind::Not
       advance
       expr = parse_unary
       UnaryOpExpr.new(UnaryOpKind::Not, expr)
+    when TokenKind::Minus
+      advance
+      expr = parse_unary
+      UnaryOpExpr.new(UnaryOpKind::Neg, expr)
+    when TokenKind::Plus
+      advance
+      parse_unary
+    when TokenKind::Incr
+      advance
+      expr = parse_primary_with_incr
+      if expr.is_a?(IdentExpr)
+        IncrExpr.new(expr.name, 1, false)
+      else
+        raise "invalid increment target"
+      end
+    when TokenKind::Decr
+      advance
+      expr = parse_primary_with_incr
+      if expr.is_a?(IdentExpr)
+        IncrExpr.new(expr.name, -1, false)
+      else
+        raise "invalid decrement target"
+      end
     else
-      parse_primary
+      parse_primary_with_incr
+    end
+  end
+
+  private def parse_primary_with_incr : Expr
+    expr = parse_primary
+    if @curr.kind == TokenKind::Incr
+      advance
+      if expr.is_a?(IdentExpr)
+        IncrExpr.new(expr.name, 1, true)
+      else
+        raise "invalid increment target"
+      end
+    elsif @curr.kind == TokenKind::Decr
+      advance
+      if expr.is_a?(IdentExpr)
+        IncrExpr.new(expr.name, -1, true)
+      else
+        raise "invalid decrement target"
+      end
+    else
+      expr
     end
   end
 
@@ -222,7 +584,16 @@ class Parser
     when TokenKind::Ident
       name = @curr.str_value || ""
       advance
-      IdentExpr.new(name)
+      if @curr.kind == TokenKind::LParen
+        parse_call(name)
+      elsif @curr.kind == TokenKind::LBracket
+        advance
+        index = parse_expr
+        expect(TokenKind::RBracket)
+        ArrayAccessExpr.new(name, index)
+      else
+        IdentExpr.new(name)
+      end
     when TokenKind::LParen
       advance
       expr = parse_expr
@@ -235,5 +606,22 @@ class Parser
     else
       raise err_unexpected
     end
+  end
+
+  private def parse_call(name : String) : Expr
+    advance
+    args = [] of Expr
+    saved_auto_match = @auto_match_regex
+    @auto_match_regex = false
+    if @curr.kind != TokenKind::RParen
+      args << parse_expr
+      while @curr.kind == TokenKind::Comma
+        advance
+        args << parse_expr
+      end
+    end
+    expect(TokenKind::RParen)
+    @auto_match_regex = saved_auto_match
+    CallExpr.new(name, args)
   end
 end
