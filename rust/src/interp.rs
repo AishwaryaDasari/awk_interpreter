@@ -58,7 +58,7 @@ impl Interp {
                 self.env.get_field(n)
             }
             Expr::Ident(name) => self.env.get_var(name),
-            Expr::Str(s) => Value::Str(s.clone()),
+            Expr::Str(s) :: Value::Str(s.clone()),
             Expr::Num(n) => Value::Num(*n),
         }
     }
