@@ -8,16 +8,17 @@ import (
 	"awk-go/parser"
 )
 
-// Value represents an AWK value that can be either a string or a number.
-// IsNum indicates whether the canonical representation is numeric.
+// ── Value ─────────────────────────────────────────────────────────────────────
+
+// Value is an AWK runtime value — simultaneously a string and a number.
 type Value struct {
 	Str   string
 	Num   float64
 	IsNum bool
 }
 
-// String returns the string representation of the value.
-// Whole numbers are formatted without a decimal point.
+// String returns the display representation.
+// Whole numbers print without a decimal point.
 func (v Value) String() string {
 	if v.IsNum {
 		if v.Num == float64(int64(v.Num)) {
@@ -28,21 +29,23 @@ func (v Value) String() string {
 	return v.Str
 }
 
-// Float converts the value to float64, parsing strings on demand.
+// Float coerces the value to float64.
 func (v Value) Float() float64 {
 	if v.IsNum {
 		return v.Num
 	}
-	f, _ := strconv.ParseFloat(v.Str, 64)
+	f, _ := strconv.ParseFloat(strings.TrimSpace(v.Str), 64)
 	return f
 }
 
-// Interpreter walks the AST and executes AWK statements against input lines.
+// ── Interpreter ───────────────────────────────────────────────────────────────
+
+// Interpreter executes a parsed AWK program against input text.
 type Interpreter struct {
-	variables map[string]Value // user-defined variables
-	fields    []string         // fields[0] = $0 (full line), fields[1] = $1, ...
+	variables map[string]Value
+	fields    []string // [0] = $0, [1] = $1, ...
+	nr        int      // current record number (NR)
 	output    strings.Builder
-	nr        int // current record number
 }
 
 func New() *Interpreter {
@@ -51,29 +54,51 @@ func New() *Interpreter {
 	}
 }
 
-// Run executes the given AST nodes against every line in input.
-func (i *Interpreter) Run(nodes []parser.Node, input string) string {
+// Run executes the program against the full input string and returns all output.
+//
+// Execution order:
+//  1. All BEGIN rules — once, before any input is read
+//  2. All "always" rules — once per input line
+//  3. All END rules — once, after all input is consumed
+func (i *Interpreter) Run(prog *parser.Program, input string) string {
 	i.output.Reset()
-	scanner := bufio.NewScanner(strings.NewReader(input))
-	for scanner.Scan() {
-		i.setLine(scanner.Text(), " ")
-		for _, node := range nodes {
-			i.execNode(node)
+
+	// 1. BEGIN rules
+	for _, rule := range prog.Rules {
+		if rule.Pattern == "begin" {
+			i.execStmts(rule.Body)
 		}
 	}
+
+	// 2. Per-line rules
+	scanner := bufio.NewScanner(strings.NewReader(input))
+	for scanner.Scan() {
+		i.setLine(scanner.Text())
+		for _, rule := range prog.Rules {
+			if rule.Pattern == "always" {
+				i.execStmts(rule.Body)
+			}
+		}
+	}
+
+	// 3. END rules
+	for _, rule := range prog.Rules {
+		if rule.Pattern == "end" {
+			i.execStmts(rule.Body)
+		}
+	}
+
 	return i.output.String()
 }
 
-func (i *Interpreter) setLine(line, sep string) {
+// setLine splits an input line into fields and increments NR.
+// Strips trailing \r to handle Windows CRLF line endings transparently.
+func (i *Interpreter) setLine(line string) {
 	i.nr++
-	var parts []string
-	if sep == " " {
-		parts = strings.Fields(line)
-	} else {
-		parts = strings.Split(line, sep)
-	}
+	line = strings.TrimRight(line, "\r")
+	parts := strings.Fields(line)
 	i.fields = make([]string, 0, len(parts)+1)
-	i.fields = append(i.fields, line)  // $0
+	i.fields = append(i.fields, line)     // $0
 	i.fields = append(i.fields, parts...) // $1, $2, ...
 }
 
@@ -89,63 +114,55 @@ func (i *Interpreter) getVar(name string) Value {
 	case "NR":
 		return Value{Num: float64(i.nr), IsNum: true}
 	case "NF":
-		n := len(i.fields) - 1
-		if n < 0 {
-			n = 0
+		nf := len(i.fields) - 1
+		if nf < 0 {
+			nf = 0
 		}
-		return Value{Num: float64(n), IsNum: true}
+		return Value{Num: float64(nf), IsNum: true}
 	default:
 		if v, ok := i.variables[name]; ok {
 			return v
 		}
-		return Value{Num: 0, IsNum: true}
+		return Value{Str: ""}
 	}
 }
 
-func (i *Interpreter) execNode(node parser.Node) Value {
+// execStmts runs a list of statements.
+func (i *Interpreter) execStmts(stmts []parser.Node) {
+	for _, stmt := range stmts {
+		i.execNode(stmt)
+	}
+}
+
+func (i *Interpreter) execNode(node parser.Node) {
 	switch n := node.(type) {
 	case *parser.PrintNode:
-		return i.execPrint(n)
-	case *parser.ProgramNode:
-		for _, stmt := range n.Statements {
-			i.execNode(stmt)
-		}
-		return Value{}
-	default:
-		return i.evalExpr(node)
+		i.execPrint(n)
 	}
 }
 
-func (i *Interpreter) execPrint(node *parser.PrintNode) Value {
+func (i *Interpreter) execPrint(node *parser.PrintNode) {
+	// print with no args → print $0
 	if len(node.Args) == 0 {
 		i.output.WriteString(i.getField(0).String())
 		i.output.WriteByte('\n')
-		return Value{}
+		return
 	}
 
-	var parts []string
-	for _, arg := range node.Args {
-		parts = append(parts, i.evalExpr(arg).String())
-	}
-	for idx, part := range parts {
+	for idx, arg := range node.Args {
 		if idx > 0 {
 			i.output.WriteByte(' ')
 		}
-		i.output.WriteString(part)
+		i.output.WriteString(i.evalExpr(arg).String())
 	}
 	i.output.WriteByte('\n')
-	return Value{}
 }
 
 func (i *Interpreter) evalExpr(node parser.Node) Value {
 	switch n := node.(type) {
-	case *parser.FieldNode:
-		return i.getField(n.Index)
-
 	case *parser.FieldExprNode:
 		v := i.evalExpr(n.Inner)
-		idx := int(v.Float())
-		return i.getField(idx)
+		return i.getField(int(v.Float()))
 
 	case *parser.IdentNode:
 		return i.getVar(n.Name)
@@ -157,6 +174,6 @@ func (i *Interpreter) evalExpr(node parser.Node) Value {
 		return Value{Num: n.Value, IsNum: true}
 
 	default:
-		return Value{}
+		return Value{Str: ""}
 	}
 }

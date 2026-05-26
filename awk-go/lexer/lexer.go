@@ -15,12 +15,18 @@ const (
 	RBRACE
 	LPAREN
 	RPAREN
-	FIELD  // $
+	FIELD // $
 	COMMA
 	SEMICOLON
-	PRINT  // keyword
-	NR     // keyword
-	NF     // keyword
+	NEWLINE
+	// Keywords
+	PRINT
+	BEGIN
+	END
+	// Built-in variables
+	NR
+	NF
+	// Literals
 	STRING
 	NUMBER
 	IDENT
@@ -56,7 +62,7 @@ func (l *Lexer) Tokenize() []Token {
 }
 
 func (l *Lexer) nextToken() Token {
-	l.skipWhitespace()
+	l.skipSpaces() // skip spaces/tabs but NOT newlines
 
 	if l.pos >= len(l.input) {
 		return Token{Type: EOF}
@@ -65,6 +71,9 @@ func (l *Lexer) nextToken() Token {
 	ch := l.input[l.pos]
 
 	switch ch {
+	case '\n':
+		l.pos++
+		return Token{Type: NEWLINE, Value: "\n"}
 	case '{':
 		l.pos++
 		return Token{Type: LBRACE, Value: "{"}
@@ -89,19 +98,21 @@ func (l *Lexer) nextToken() Token {
 	case '"':
 		return l.readString()
 	default:
-		if ch >= '0' && ch <= '9' || ch == '-' {
+		if ch >= '0' && ch <= '9' {
 			return l.readNumber()
 		}
 		if unicode.IsLetter(ch) || ch == '_' {
 			return l.readIdent()
 		}
+		// unknown character — skip it
 		l.pos++
-		return Token{Type: IDENT, Value: string(ch)}
+		return Token{Type: ILLEGAL, Value: string(ch)}
 	}
 }
 
-func (l *Lexer) skipWhitespace() {
-	for l.pos < len(l.input) && unicode.IsSpace(l.input[l.pos]) {
+// skipSpaces skips spaces and tabs only — newlines are significant tokens.
+func (l *Lexer) skipSpaces() {
+	for l.pos < len(l.input) && (l.input[l.pos] == ' ' || l.input[l.pos] == '\t' || l.input[l.pos] == '\r') {
 		l.pos++
 	}
 }
@@ -110,7 +121,24 @@ func (l *Lexer) readString() Token {
 	l.pos++ // skip opening "
 	var buf strings.Builder
 	for l.pos < len(l.input) && l.input[l.pos] != '"' {
-		buf.WriteRune(l.input[l.pos])
+		if l.input[l.pos] == '\\' && l.pos+1 < len(l.input) {
+			l.pos++
+			switch l.input[l.pos] {
+			case 'n':
+				buf.WriteByte('\n')
+			case 't':
+				buf.WriteByte('\t')
+			case '"':
+				buf.WriteByte('"')
+			case '\\':
+				buf.WriteByte('\\')
+			default:
+				buf.WriteByte('\\')
+				buf.WriteRune(l.input[l.pos])
+			}
+		} else {
+			buf.WriteRune(l.input[l.pos])
+		}
 		l.pos++
 	}
 	if l.pos < len(l.input) {
@@ -121,9 +149,6 @@ func (l *Lexer) readString() Token {
 
 func (l *Lexer) readNumber() Token {
 	start := l.pos
-	if l.input[l.pos] == '-' {
-		l.pos++
-	}
 	for l.pos < len(l.input) && l.input[l.pos] >= '0' && l.input[l.pos] <= '9' {
 		l.pos++
 	}
@@ -150,6 +175,10 @@ func (l *Lexer) readIdent() Token {
 	switch s {
 	case "print":
 		return Token{Type: PRINT, Value: s}
+	case "BEGIN":
+		return Token{Type: BEGIN, Value: s}
+	case "END":
+		return Token{Type: END, Value: s}
 	case "NR":
 		return Token{Type: NR, Value: s}
 	case "NF":

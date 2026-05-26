@@ -1,23 +1,39 @@
 package parser
 
 import (
+	"fmt"
 	"strconv"
 
 	"awk-go/lexer"
 )
+
+// ── AST node interface ────────────────────────────────────────────────────────
 
 // Node is the common interface for all AST nodes.
 type Node interface {
 	nodeType() string
 }
 
-// --- Statement nodes ---
+// ── Top-level program ─────────────────────────────────────────────────────────
 
-type ProgramNode struct {
-	Statements []Node
+// Program is the root node: a list of rules.
+// Each rule is a pattern + action pair.
+type Program struct {
+	Rules []*Rule
 }
 
-func (n *ProgramNode) nodeType() string { return "program" }
+func (n *Program) nodeType() string { return "program" }
+
+// Rule represents one `pattern { action }` pair.
+// Pattern is one of: "always", "begin", "end".
+type Rule struct {
+	Pattern string // "always" | "begin" | "end"
+	Body    []Node // list of statements
+}
+
+func (n *Rule) nodeType() string { return "rule" }
+
+// ── Statement nodes ───────────────────────────────────────────────────────────
 
 type PrintNode struct {
 	Args []Node
@@ -25,18 +41,9 @@ type PrintNode struct {
 
 func (n *PrintNode) nodeType() string { return "print" }
 
-// --- Expression nodes ---
+// ── Expression nodes ──────────────────────────────────────────────────────────
 
-// FieldNode represents a direct numeric field access ($0, $1, ..., $N)
-// produced when the parser sees a literal number after $.
-type FieldNode struct {
-	Index int
-}
-
-func (n *FieldNode) nodeType() string { return "field" }
-
-// FieldExprNode represents a computed field access ($expr), where
-// expr is evaluated at runtime to determine the field number.
+// FieldExprNode represents $(expr) — field number determined at runtime.
 type FieldExprNode struct {
 	Inner Node
 }
@@ -61,7 +68,7 @@ type NumNode struct {
 
 func (n *NumNode) nodeType() string { return "num" }
 
-// --- Parser ---
+// ── Parser ────────────────────────────────────────────────────────────────────
 
 type Parser struct {
 	tokens []lexer.Token
@@ -69,10 +76,7 @@ type Parser struct {
 }
 
 func New(tokens []lexer.Token) *Parser {
-	return &Parser{
-		tokens: tokens,
-		pos:    0,
-	}
+	return &Parser{tokens: tokens, pos: 0}
 }
 
 func (p *Parser) current() lexer.Token {
@@ -88,49 +92,139 @@ func (p *Parser) advance() {
 	}
 }
 
-func (p *Parser) Parse() ([]Node, error) {
-	var stmts []Node
-
-	if p.current().Type == lexer.LBRACE {
+// skipTerminators skips newlines and semicolons between statements/rules.
+func (p *Parser) skipTerminators() {
+	for p.current().Type == lexer.NEWLINE || p.current().Type == lexer.SEMICOLON {
 		p.advance()
-	}
-
-	for {
-		switch p.current().Type {
-		case lexer.RBRACE, lexer.EOF:
-			return stmts, nil
-		case lexer.PRINT:
-			stmts = append(stmts, p.parsePrint())
-		default:
-			p.advance()
-		}
 	}
 }
 
-func (p *Parser) parsePrint() Node {
-	p.advance() // skip PRINT
+// Parse parses the full program and returns a Program node.
+// It supports three forms:
+//
+//	BEGIN { stmts }
+//	END   { stmts }
+//	{ stmts }          ← action-only, runs on every line
+func (p *Parser) Parse() (*Program, error) {
+	prog := &Program{}
+	p.skipTerminators()
+
+	for p.current().Type != lexer.EOF {
+		rule, err := p.parseRule()
+		if err != nil {
+			return nil, err
+		}
+		prog.Rules = append(prog.Rules, rule)
+		p.skipTerminators()
+	}
+
+	return prog, nil
+}
+
+func (p *Parser) parseRule() (*Rule, error) {
+	var pattern string
+
+	switch p.current().Type {
+	case lexer.BEGIN:
+		pattern = "begin"
+		p.advance()
+	case lexer.END:
+		pattern = "end"
+		p.advance()
+	case lexer.LBRACE:
+		pattern = "always"
+		// don't advance — parseBlock will consume the brace
+	default:
+		return nil, fmt.Errorf("unexpected token %q at start of rule", p.current().Value)
+	}
+
+	p.skipTerminators()
+
+	body, err := p.parseBlock()
+	if err != nil {
+		return nil, err
+	}
+
+	return &Rule{Pattern: pattern, Body: body}, nil
+}
+
+// parseBlock parses { stmt; stmt; ... }
+func (p *Parser) parseBlock() ([]Node, error) {
+	if p.current().Type != lexer.LBRACE {
+		return nil, fmt.Errorf("expected '{', got %q", p.current().Value)
+	}
+	p.advance() // consume {
+	p.skipTerminators()
+
+	var stmts []Node
+	for p.current().Type != lexer.RBRACE && p.current().Type != lexer.EOF {
+		stmt, err := p.parseStmt()
+		if err != nil {
+			return nil, err
+		}
+		stmts = append(stmts, stmt)
+		p.skipTerminators()
+	}
+
+	if p.current().Type != lexer.RBRACE {
+		return nil, fmt.Errorf("expected '}', got EOF")
+	}
+	p.advance() // consume }
+
+	return stmts, nil
+}
+
+func (p *Parser) parseStmt() (Node, error) {
+	switch p.current().Type {
+	case lexer.PRINT:
+		return p.parsePrint()
+	default:
+		return nil, fmt.Errorf("unexpected token %q in statement", p.current().Value)
+	}
+}
+
+func (p *Parser) parsePrint() (Node, error) {
+	p.advance() // consume 'print'
 
 	var args []Node
 
-	if p.current().Type == lexer.COMMA {
+	// print with no args → print $0
+	if p.current().Type == lexer.NEWLINE ||
+		p.current().Type == lexer.SEMICOLON ||
+		p.current().Type == lexer.RBRACE ||
+		p.current().Type == lexer.EOF {
+		return &PrintNode{Args: args}, nil
+	}
+
+	// optional parens: print($1) or print $1
+	parens := p.current().Type == lexer.LPAREN
+	if parens {
 		p.advance()
 	}
 
 	for {
-		switch p.current().Type {
-		case lexer.RBRACE, lexer.EOF, lexer.SEMICOLON:
-			return &PrintNode{Args: args}
-		case lexer.COMMA:
+		arg := p.parseExpr()
+		args = append(args, arg)
+		if p.current().Type == lexer.COMMA {
 			p.advance()
-		default:
-			args = append(args, p.parseExpr())
-			if p.current().Type == lexer.COMMA {
-				p.advance()
-			} else {
-				return &PrintNode{Args: args}
-			}
+		} else {
+			break
 		}
 	}
+
+	if parens {
+		if p.current().Type != lexer.RPAREN {
+			return nil, fmt.Errorf("expected ')' after print args")
+		}
+		p.advance()
+	}
+
+	// consume optional statement terminator
+	if p.current().Type == lexer.SEMICOLON || p.current().Type == lexer.NEWLINE {
+		p.advance()
+	}
+
+	return &PrintNode{Args: args}, nil
 }
 
 func (p *Parser) parseExpr() Node {
@@ -157,6 +251,6 @@ func (p *Parser) parseExpr() Node {
 
 	default:
 		p.advance()
-		return &IdentNode{Name: ""}
+		return &StrNode{Value: ""}
 	}
 }

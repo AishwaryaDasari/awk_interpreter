@@ -25,12 +25,12 @@ func main() {
 	}
 
 	tokens := lexer.New(program).Tokenize()
-	nodes, err := parser.New(tokens).Parse()
+	prog, err := parser.New(tokens).Parse()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "parse error: %v\n", err)
 		os.Exit(1)
 	}
 
-	output := interpreter.New().Run(nodes, string(content))
+	output := interpreter.New().Run(prog, string(content))
 	fmt.Print(output)
 }
