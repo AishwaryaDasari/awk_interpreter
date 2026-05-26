@@ -3,9 +3,20 @@ use std::fs;
 use std::io::{self, BufRead};
 use std::process;
 
+use awk_rust::ast::{Node, Rule};
 use awk_rust::interp::Interp;
 use awk_rust::lexer::Lexer;
 use awk_rust::parser::Parser;
+
+fn needs_input(node: &Node) -> bool {
+    let Node::Program(rules) = node;
+    rules.iter().any(|r| {
+        matches!(
+            r,
+            Rule::Pattern(..) | Rule::BeginFile(..) | Rule::EndFile(..)
+        )
+    })
+}
 
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -38,11 +49,13 @@ fn main() {
     print!("{}", begin_out);
 
     if files.is_empty() {
-        interp.env.set_filename("");
-        for line in io::stdin().lock().lines() {
-            if let Ok(l) = line {
-                let out = interp.exec_line(&node, &l);
-                print!("{}", out);
+        if needs_input(&node) {
+            interp.env.set_filename("");
+            for line in io::stdin().lock().lines() {
+                if let Ok(l) = line {
+                    let out = interp.exec_line(&node, &l);
+                    print!("{}", out);
+                }
             }
         }
     } else {

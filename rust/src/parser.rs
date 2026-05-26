@@ -27,6 +27,10 @@ impl Parser {
                 | Token::Ident(_)
                 | Token::Regex(_)
                 | Token::Not
+                | Token::Plus
+                | Token::Minus
+                | Token::Incr
+                | Token::Decr
         )
     }
 
@@ -109,7 +113,11 @@ impl Parser {
                     stmts.push(self.parse_print()?);
                 }
                 _ => {
-                    return Err(self.err_unexpected());
+                    if self.can_start_expr() {
+                        stmts.push(Stmt::Expr(self.parse_expr()?));
+                    } else {
+                        return Err(self.err_unexpected());
+                    }
                 }
             }
         }
@@ -144,7 +152,44 @@ impl Parser {
     // ----- expression parsing with precedence -----
 
     fn parse_expr(&mut self) -> Result<Expr, String> {
-        self.parse_ternary()
+        self.parse_assignment()
+    }
+
+    fn parse_assignment(&mut self) -> Result<Expr, String> {
+        let expr = self.parse_ternary()?;
+        match &self.curr {
+            Token::Assign => {
+                self.advance();
+                match expr {
+                    Expr::Ident(name) => Ok(Expr::Assign(name, Box::new(self.parse_assignment()?))),
+                    _ => Err("invalid assignment target".to_string()),
+                }
+            }
+            Token::PlusAssign
+            | Token::MinusAssign
+            | Token::StarAssign
+            | Token::SlashAssign
+            | Token::PercentAssign => {
+                let kind = match &self.curr {
+                    Token::PlusAssign => BinOpKind::Add,
+                    Token::MinusAssign => BinOpKind::Sub,
+                    Token::StarAssign => BinOpKind::Mul,
+                    Token::SlashAssign => BinOpKind::Div,
+                    Token::PercentAssign => BinOpKind::Mod,
+                    _ => unreachable!(),
+                };
+                self.advance();
+                match expr {
+                    Expr::Ident(name) => Ok(Expr::AssignOp(
+                        kind,
+                        name,
+                        Box::new(self.parse_assignment()?),
+                    )),
+                    _ => Err("invalid assignment target".to_string()),
+                }
+            }
+            _ => Ok(expr),
+        }
     }
 
     fn parse_ternary(&mut self) -> Result<Expr, String> {
@@ -219,21 +264,102 @@ impl Parser {
     }
 
     fn parse_concat(&mut self) -> Result<Expr, String> {
-        let mut expr = self.parse_unary()?;
+        let mut expr = self.parse_arith()?;
         while self.can_start_expr() {
-            let rhs = self.parse_unary()?;
+            let rhs = self.parse_arith()?;
             expr = Expr::BinOp(Box::new(expr), BinOpKind::Concat, Box::new(rhs));
         }
         Ok(expr)
     }
 
-    fn parse_unary(&mut self) -> Result<Expr, String> {
-        if self.curr == Token::Not {
+    fn parse_arith(&mut self) -> Result<Expr, String> {
+        let mut expr = self.parse_term()?;
+        while self.curr == Token::Plus || self.curr == Token::Minus {
+            let kind = if self.curr == Token::Plus {
+                BinOpKind::Add
+            } else {
+                BinOpKind::Sub
+            };
             self.advance();
-            let expr = self.parse_unary()?;
-            Ok(Expr::UnaryOp(UnaryOpKind::Not, Box::new(expr)))
-        } else {
-            self.parse_primary()
+            let rhs = self.parse_term()?;
+            expr = Expr::BinOp(Box::new(expr), kind, Box::new(rhs));
+        }
+        Ok(expr)
+    }
+
+    fn parse_term(&mut self) -> Result<Expr, String> {
+        let mut expr = self.parse_unary()?;
+        while self.curr == Token::Star || self.curr == Token::Slash || self.curr == Token::Percent {
+            let kind = if self.curr == Token::Star {
+                BinOpKind::Mul
+            } else if self.curr == Token::Slash {
+                BinOpKind::Div
+            } else {
+                BinOpKind::Mod
+            };
+            self.advance();
+            let rhs = self.parse_unary()?;
+            expr = Expr::BinOp(Box::new(expr), kind, Box::new(rhs));
+        }
+        Ok(expr)
+    }
+
+    fn parse_unary(&mut self) -> Result<Expr, String> {
+        match &self.curr {
+            Token::Not => {
+                self.advance();
+                Ok(Expr::UnaryOp(
+                    UnaryOpKind::Not,
+                    Box::new(self.parse_unary()?),
+                ))
+            }
+            Token::Minus => {
+                self.advance();
+                Ok(Expr::UnaryOp(
+                    UnaryOpKind::Neg,
+                    Box::new(self.parse_unary()?),
+                ))
+            }
+            Token::Plus => {
+                self.advance();
+                self.parse_unary()
+            }
+            Token::Incr => {
+                self.advance();
+                let expr = self.parse_unary()?;
+                match expr {
+                    Expr::Ident(name) => Ok(Expr::Incr(name, false)),
+                    _ => Err("invalid increment target".to_string()),
+                }
+            }
+            Token::Decr => {
+                self.advance();
+                let expr = self.parse_unary()?;
+                match expr {
+                    Expr::Ident(name) => Ok(Expr::Decr(name, false)),
+                    _ => Err("invalid decrement target".to_string()),
+                }
+            }
+            _ => {
+                let expr = self.parse_primary()?;
+                match &self.curr {
+                    Token::Incr => {
+                        self.advance();
+                        match expr {
+                            Expr::Ident(name) => Ok(Expr::Incr(name, true)),
+                            _ => Err("invalid increment target".to_string()),
+                        }
+                    }
+                    Token::Decr => {
+                        self.advance();
+                        match expr {
+                            Expr::Ident(name) => Ok(Expr::Decr(name, true)),
+                            _ => Err("invalid decrement target".to_string()),
+                        }
+                    }
+                    _ => Ok(expr),
+                }
+            }
         }
     }
 

@@ -81,6 +81,9 @@ impl Interp {
                 Stmt::Print(exprs) => {
                     self.exec_print(exprs, out);
                 }
+                Stmt::Expr(expr) => {
+                    self.eval_expr(expr);
+                }
             }
         }
     }
@@ -146,7 +149,7 @@ impl Interp {
                 self.env.get_field(n)
             }
             Expr::Ident(name) => self.env.get_var(name),
-            Expr::Str(s) :: Value::Str(s.clone()),
+            Expr::Str(s) => Value::Str(s.clone()),
             Expr::Num(n) => Value::Num(*n),
             Expr::BinOp(lhs, kind, rhs) => self.eval_binop(lhs, kind, rhs),
             Expr::UnaryOp(kind, expr) => self.eval_unaryop(kind, expr),
@@ -158,11 +161,62 @@ impl Interp {
                     self.eval_expr(f)
                 }
             }
+            Expr::Assign(name, value) => {
+                let val = self.eval_expr(value);
+                self.env.set_var(name, val.clone());
+                val
+            }
+            Expr::AssignOp(kind, name, value) => {
+                let lhs = self.env.get_var(name);
+                let rhs = self.eval_expr(value);
+                let result = match kind {
+                    BinOpKind::Add => Value::Num(lhs.as_f64() + rhs.as_f64()),
+                    BinOpKind::Sub => Value::Num(lhs.as_f64() - rhs.as_f64()),
+                    BinOpKind::Mul => Value::Num(lhs.as_f64() * rhs.as_f64()),
+                    BinOpKind::Div => Value::Num(lhs.as_f64() / rhs.as_f64()),
+                    BinOpKind::Mod => Value::Num(lhs.as_f64() % rhs.as_f64()),
+                    _ => unreachable!(),
+                };
+                self.env.set_var(name, result.clone());
+                result
+            }
+            Expr::Incr(name, post) => {
+                let val = self.env.get_var(name);
+                let new_val = Value::Num(val.as_f64() + 1.0);
+                self.env.set_var(name, new_val.clone());
+                if *post {
+                    val
+                } else {
+                    new_val
+                }
+            }
+            Expr::Decr(name, post) => {
+                let val = self.env.get_var(name);
+                let new_val = Value::Num(val.as_f64() - 1.0);
+                self.env.set_var(name, new_val.clone());
+                if *post {
+                    val
+                } else {
+                    new_val
+                }
+            }
         }
     }
 
     fn eval_binop(&mut self, lhs: &Expr, kind: &BinOpKind, rhs: &Expr) -> Value {
         match kind {
+            BinOpKind::Add | BinOpKind::Sub | BinOpKind::Mul | BinOpKind::Div | BinOpKind::Mod => {
+                let lv = self.eval_expr(lhs);
+                let rv = self.eval_expr(rhs);
+                Value::Num(match kind {
+                    BinOpKind::Add => lv.as_f64() + rv.as_f64(),
+                    BinOpKind::Sub => lv.as_f64() - rv.as_f64(),
+                    BinOpKind::Mul => lv.as_f64() * rv.as_f64(),
+                    BinOpKind::Div => lv.as_f64() / rv.as_f64(),
+                    BinOpKind::Mod => lv.as_f64() % rv.as_f64(),
+                    _ => unreachable!(),
+                })
+            }
             BinOpKind::Concat => {
                 let lv = self.eval_expr(lhs);
                 let rv = self.eval_expr(rhs);
@@ -288,6 +342,10 @@ impl Interp {
 
     fn eval_unaryop(&mut self, kind: &UnaryOpKind, expr: &Expr) -> Value {
         match kind {
+            UnaryOpKind::Neg => {
+                let v = self.eval_expr(expr);
+                Value::Num(-v.as_f64())
+            }
             UnaryOpKind::Not => {
                 let v = self.eval_expr(expr);
                 Value::Num(if self.is_truthy(&v) { 0.0 } else { 1.0 })

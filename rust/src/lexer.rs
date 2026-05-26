@@ -12,6 +12,19 @@ pub enum Token {
     Dollar,
     Comma,
     Semicolon,
+    Plus,
+    Minus,
+    Star,
+    Slash,
+    Percent,
+    Incr,
+    Decr,
+    Assign,
+    PlusAssign,
+    MinusAssign,
+    StarAssign,
+    SlashAssign,
+    PercentAssign,
     Tilde,
     BangTilde,
     Eq,
@@ -36,6 +49,7 @@ pub enum Token {
 pub struct Lexer {
     input: Vec<char>,
     pos: usize,
+    prev_was_operand: bool,
 }
 
 impl Lexer {
@@ -43,6 +57,7 @@ impl Lexer {
         Lexer {
             input: input.chars().collect(),
             pos: 0,
+            prev_was_operand: false,
         }
     }
 
@@ -52,7 +67,7 @@ impl Lexer {
             return Token::EOF;
         }
         let ch = self.input[self.pos];
-        match ch {
+        let tok = match ch {
             '{' => {
                 self.pos += 1;
                 Token::LBrace
@@ -93,6 +108,71 @@ impl Lexer {
                 self.pos += 1;
                 Token::Tilde
             }
+            '+' => {
+                self.pos += 1;
+                if self.pos < self.input.len() {
+                    match self.input[self.pos] {
+                        '+' => {
+                            self.pos += 1;
+                            Token::Incr
+                        }
+                        '=' => {
+                            self.pos += 1;
+                            Token::PlusAssign
+                        }
+                        _ => Token::Plus,
+                    }
+                } else {
+                    Token::Plus
+                }
+            }
+            '-' => {
+                self.pos += 1;
+                if self.pos < self.input.len() {
+                    match self.input[self.pos] {
+                        '-' => {
+                            self.pos += 1;
+                            Token::Decr
+                        }
+                        '=' => {
+                            self.pos += 1;
+                            Token::MinusAssign
+                        }
+                        _ => Token::Minus,
+                    }
+                } else {
+                    Token::Minus
+                }
+            }
+            '*' => {
+                self.pos += 1;
+                if self.pos < self.input.len() && self.input[self.pos] == '=' {
+                    self.pos += 1;
+                    Token::StarAssign
+                } else {
+                    Token::Star
+                }
+            }
+            '/' => {
+                if self.pos + 1 < self.input.len() && self.input[self.pos + 1] == '=' {
+                    self.pos += 2;
+                    Token::SlashAssign
+                } else if !self.prev_was_operand {
+                    self.read_regex()
+                } else {
+                    self.pos += 1;
+                    Token::Slash
+                }
+            }
+            '%' => {
+                self.pos += 1;
+                if self.pos < self.input.len() && self.input[self.pos] == '=' {
+                    self.pos += 1;
+                    Token::PercentAssign
+                } else {
+                    Token::Percent
+                }
+            }
             '!' => {
                 self.pos += 1;
                 if self.pos < self.input.len() {
@@ -117,7 +197,7 @@ impl Lexer {
                     self.pos += 1;
                     Token::Eq
                 } else {
-                    Token::Invalid('=')
+                    Token::Assign
                 }
             }
             '>' => {
@@ -156,15 +236,25 @@ impl Lexer {
                     Token::Invalid('|')
                 }
             }
-            '/' => self.read_regex(),
             '"' => self.read_string(),
-            '0'..='9' | '-' => self.read_number(),
+            '0'..='9' => self.read_number(),
             'a'..='z' | 'A'..='Z' | '_' => self.read_ident(),
             _ => {
                 self.pos += 1;
                 Token::Invalid(ch)
             }
+        };
+        match &tok {
+            Token::Number(_)
+            | Token::String(_)
+            | Token::Ident(_)
+            | Token::RParen
+            | Token::Regex(_)
+            | Token::Incr
+            | Token::Decr => self.prev_was_operand = true,
+            _ => self.prev_was_operand = false,
         }
+        tok
     }
 
     fn skip_whitespace(&mut self) {
@@ -201,9 +291,6 @@ impl Lexer {
 
     fn read_number(&mut self) -> Token {
         let start = self.pos;
-        if self.input[self.pos] == '-' {
-            self.pos += 1;
-        }
         while self.pos < self.input.len() && self.input[self.pos].is_ascii_digit() {
             self.pos += 1;
         }

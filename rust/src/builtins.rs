@@ -55,4 +55,8 @@ impl Env {
             _ => self.vars.get(name).cloned().unwrap_or(Value::Num(0.0)),
         }
     }
+
+    pub fn set_var(&mut self, name: &str, val: Value) {
+        self.vars.insert(name.to_string(), val);
+    }
 }
