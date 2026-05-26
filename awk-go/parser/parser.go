@@ -25,9 +25,11 @@ type Program struct {
 func (n *Program) nodeType() string { return "program" }
 
 // Rule represents one `pattern { action }` pair.
-// Pattern is one of: "always", "begin", "end".
+// Pattern is one of: "always", "begin", "end", "regex".
+// For regex patterns, Regex holds the pattern string.
 type Rule struct {
-	Pattern string // "always" | "begin" | "end"
+	Pattern string // "always" | "begin" | "end" | "regex"
+	Regex   string // set when Pattern == "regex"
 	Body    []Node // list of statements
 }
 
@@ -123,6 +125,7 @@ func (p *Parser) Parse() (*Program, error) {
 
 func (p *Parser) parseRule() (*Rule, error) {
 	var pattern string
+	var regex string
 
 	switch p.current().Type {
 	case lexer.BEGIN:
@@ -130,6 +133,10 @@ func (p *Parser) parseRule() (*Rule, error) {
 		p.advance()
 	case lexer.END:
 		pattern = "end"
+		p.advance()
+	case lexer.REGEX:
+		pattern = "regex"
+		regex = p.current().Value
 		p.advance()
 	case lexer.LBRACE:
 		pattern = "always"
@@ -145,7 +152,7 @@ func (p *Parser) parseRule() (*Rule, error) {
 		return nil, err
 	}
 
-	return &Rule{Pattern: pattern, Body: body}, nil
+	return &Rule{Pattern: pattern, Regex: regex, Body: body}, nil
 }
 
 // parseBlock parses { stmt; stmt; ... }

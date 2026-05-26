@@ -30,6 +30,7 @@ const (
 	STRING
 	NUMBER
 	IDENT
+	REGEX // /pattern/
 )
 
 type Token struct {
@@ -97,6 +98,8 @@ func (l *Lexer) nextToken() Token {
 		return Token{Type: SEMICOLON, Value: ";"}
 	case '"':
 		return l.readString()
+	case '/':
+		return l.readRegex()
 	default:
 		if ch >= '0' && ch <= '9' {
 			return l.readNumber()
@@ -164,6 +167,25 @@ func (l *Lexer) readNumber() Token {
 		raw = "0"
 	}
 	return Token{Type: NUMBER, Value: raw}
+}
+
+func (l *Lexer) readRegex() Token {
+	l.pos++ // skip opening /
+	var buf strings.Builder
+	for l.pos < len(l.input) && l.input[l.pos] != '/' {
+		if l.input[l.pos] == '\\' && l.pos+1 < len(l.input) {
+			l.pos++
+			buf.WriteByte('\\')
+			buf.WriteRune(l.input[l.pos])
+		} else {
+			buf.WriteRune(l.input[l.pos])
+		}
+		l.pos++
+	}
+	if l.pos < len(l.input) {
+		l.pos++ // skip closing /
+	}
+	return Token{Type: REGEX, Value: buf.String()}
 }
 
 func (l *Lexer) readIdent() Token {

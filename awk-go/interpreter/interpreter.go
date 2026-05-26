@@ -2,6 +2,7 @@ package interpreter
 
 import (
 	"bufio"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -75,8 +76,13 @@ func (i *Interpreter) Run(prog *parser.Program, input string) string {
 	for scanner.Scan() {
 		i.setLine(scanner.Text())
 		for _, rule := range prog.Rules {
-			if rule.Pattern == "always" {
+			switch rule.Pattern {
+			case "always":
 				i.execStmts(rule.Body)
+			case "regex":
+				if i.matchesRegex(rule.Regex, i.getField(0).String()) {
+					i.execStmts(rule.Body)
+				}
 			}
 		}
 	}
@@ -176,4 +182,14 @@ func (i *Interpreter) evalExpr(node parser.Node) Value {
 	default:
 		return Value{Str: ""}
 	}
+}
+
+// matchesRegex returns true if s matches the given regex pattern.
+// Compile errors are treated as no-match.
+func (i *Interpreter) matchesRegex(pattern, s string) bool {
+	re, err := regexp.Compile(pattern)
+	if err != nil {
+		return false
+	}
+	return re.MatchString(s)
 }
