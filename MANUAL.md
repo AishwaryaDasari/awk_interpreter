@@ -9,54 +9,19 @@ All three versions run the same programs and produce identical output.
 
 ## Table of Contents
 
-1. [Build & Install](#build--install)
-2. [Running the Interpreter](#running-the-interpreter)
-3. [Program Structure](#program-structure)
-4. [Special Patterns](#special-patterns)
-5. [Fields and Records](#fields-and-records)
-6. [Built-in Variables](#built-in-variables)
-7. [Operators](#operators)
-8. [Statements](#statements)
-9. [Control Flow](#control-flow)
-10. [Arrays](#arrays)
-11. [Built-in Functions](#built-in-functions)
-12. [User-Defined Functions](#user-defined-functions)
-13. [CLI Flags](#cli-flags)
-14. [Worked Examples](#worked-examples)
-
----
-
-## Build & Install
-
-### Rust
-
-**Requirements:** Rust toolchain (`rustup`, `cargo`)
-
-```bash
-cd rust
-cargo build --release
-# binary: rust/target/release/awk_rust
-```
-
-### Go
-
-**Requirements:** Go 1.18+
-
-```bash
-cd awk-go
-go build -o awk_go .
-# binary: awk-go/awk_go
-```
-
-### Crystal
-
-**Requirements:** Crystal compiler
-
-```bash
-cd crystal
-crystal build src/awk.cr -o awk_crystal
-# binary: crystal/awk_crystal
-```
+1. [Running the Interpreter](#running-the-interpreter)
+2. [Program Structure](#program-structure)
+3. [Special Patterns](#special-patterns)
+4. [Fields and Records](#fields-and-records)
+5. [Built-in Variables](#built-in-variables)
+6. [Operators](#operators)
+7. [Statements](#statements)
+8. [Control Flow](#control-flow)
+9. [Arrays](#arrays)
+10. [Built-in Functions](#built-in-functions)
+11. [User-Defined Functions](#user-defined-functions)
+12. [CLI Flags](#cli-flags)
+13. [Worked Examples](#worked-examples)
 
 ---
 
