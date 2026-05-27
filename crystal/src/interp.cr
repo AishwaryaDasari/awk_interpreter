@@ -194,17 +194,21 @@ class Interp
           when 'f'
             val = arg_idx < args.size ? args[arg_idx].as_f64 : 0.0
             arg_idx += 1
-            s = val.to_s
-            buf << s
+            prec = precision >= 0 ? precision : 6
+            s = sprintf("%.#{prec}f", val)
+            apply_format(s, width, flags, buf)
           when 'e'
             val = arg_idx < args.size ? args[arg_idx].as_f64 : 0.0
             arg_idx += 1
-            buf << val.to_s
+            prec = precision >= 0 ? precision : 6
+            s = sprintf("%.#{prec}e", val)
+            apply_format(s, width, flags, buf)
           when 'g'
             val = arg_idx < args.size ? args[arg_idx].as_f64 : 0.0
             arg_idx += 1
-            s = val.to_s
-            buf << s
+            prec = precision >= 0 ? precision : 6
+            s = sprintf("%.#{prec}g", val)
+            apply_format(s, width, flags, buf)
           else
             buf << '%' << fmt[i]
           end
@@ -529,7 +533,7 @@ class Interp
           AwkValue.new((md.begin(0) + 1).to_f64)
         else
           @env.set_var("RSTART", AwkValue.new(0.0))
-          @env.set_var("RLENGTH", AwkValue.new(0.0))
+          @env.set_var("RLENGTH", AwkValue.new(-1.0))
           AwkValue.new(0.0)
         end
       else

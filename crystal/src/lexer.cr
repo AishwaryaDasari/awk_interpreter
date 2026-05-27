@@ -258,10 +258,18 @@ class Lexer
         Token.new(TokenKind::Star)
       end
     when '/'
+      if @pos > 0
+        prev = @input[@pos - 1]
+        is_division = prev.ascii_alphanumeric? || prev == ')' || prev == ']' || prev == '}' || prev == '+' || prev == '-'
+      else
+        is_division = false
+      end
       @pos += 1
       if @pos < @input.size && @input[@pos] == '='
         @pos += 1
         Token.new(TokenKind::SlashAssign)
+      elsif is_division
+        Token.new(TokenKind::Slash)
       else
         @pos -= 1
         read_regex
