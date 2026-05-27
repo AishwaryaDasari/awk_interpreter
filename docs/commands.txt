@@ -401,3 +401,85 @@ awk '{
     }
 }' file.txt
     Skip negative values (continue) and stop at values over 100 (break).
+
+# --- Built-in string functions ---
+
+# length([string])
+
+awk '{ print length($1) }' file.txt
+    Print the length of the first field of each line.
+
+awk '{ print length() }' file.txt
+    Print the length of the entire line ($0) when called with no argument.
+
+# substr(string, start [, length])
+
+awk '{ print substr($1, 1, 2) }' file.txt
+    Print the first 2 characters of field 1.
+
+awk '{ print substr($1, 3) }' file.txt
+    Print field 1 starting from character position 3 to the end.
+
+awk '{ print substr($1, length($1)-2) }' file.txt
+    Print the last 3 characters of field 1.
+
+# index(string, substring)
+
+awk '{ print index($1, "a") }' file.txt
+    Print the position of the first occurrence of "a" in field 1 (0 if not found).
+
+# tolower(string) / toupper(string)
+
+awk '{ print tolower($1) }' file.txt
+    Convert field 1 to lowercase.
+
+awk '{ print toupper($1) }' file.txt
+    Convert field 1 to uppercase.
+
+# match(string, regex)
+
+awk '{ if (match($0, /[0-9]+/)) print RSTART, RLENGTH, substr($0, RSTART, RLENGTH) }' file.txt
+    Find the first regex match in $0, sets RSTART and RLENGTH.
+
+# split(string, array [, separator])
+
+awk '{ n = split($0, parts); for (i = 1; i <= n; i++) print parts[i] }' file.txt
+    Split $0 by whitespace into array `parts`, then print each element.
+
+awk -F, '{ n = split($0, fields, ","); print fields[2] }' file.csv
+    Split by a comma explicitly and access a specific element.
+
+# sub(regex, replacement [, target])
+
+awk '{ line = $0; sub(/[0-9]/, "X", line); print line }' file.txt
+    Replace the first occurrence of a digit with "X" in a variable.
+
+awk '{ sub(/^ +/, ""); print }' file.txt
+    Strip leading whitespace from $0 (sub on default target).
+
+# gsub(regex, replacement [, target])
+
+awk '{ gsub(/[aeiou]/, "*", $1); print $1 }' file.txt
+    Replace all vowels with "*" in the first field (modifies $1 in place).
+
+awk '{ gsub(/[0-9]+/, "NUM"); print }' file.txt
+    Replace all digit sequences with "NUM" in the entire line.
+
+awk '{ line = $0; n = gsub(/[aeiou]/, "", line); print n, line }' file.txt
+    Remove all vowels from a variable; returns the number of substitutions.
+
+# gensub(regex, replacement, how [, target])  — gawk extension
+
+awk '{ modified = gensub(/[aeiou]/, "*", "g", $1); print $1, "->", modified }' file.txt
+    Replace all vowels with "*" in $1 but DO NOT modify $1; returns the result.
+
+awk '{ print gensub(/([0-9]+)/, "[\\1]", 1) }' file.txt
+    Replace only the first digit sequence with [captured] in $0.
+
+# sprintf(format, expr, ...)
+
+awk '{ formatted = sprintf("%-10s | %6d", $1, $2); print formatted }' file.txt
+    Create a formatted string with left-aligned string and right-aligned number.
+
+awk '{ pct = ($2 / 100) * 100; print sprintf("%s: %.1f%%", $1, pct) }' file.txt
+    Format a percentage with one decimal place.
