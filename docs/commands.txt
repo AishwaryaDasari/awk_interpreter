@@ -218,3 +218,45 @@ awk -v count=0 -v prefix=">>" '{ print prefix, $0 }' file.txt
 awk '# this is a comment
 BEGIN { print "hello" }'
     Lines starting with # are comments, ignored by the interpreter.
+
+# --- if/else ---
+
+awk '{ if ($1 > 10) print $1, "big" }' file.txt
+    Print the first field and "big" if it's greater than 10.
+
+awk '{ if ($1 > 10) print $1, "big"; else print $1, "small" }' file.txt
+    Print "big" if field 1 > 10, otherwise print "small".
+
+awk '{
+    if ($1 >= 80) print $1, "A"
+    else if ($1 >= 60) print $1, "B"
+    else print $1, "C"
+}' file.txt
+    if-else if-else chain for grading.
+
+awk '{ if ($1 % 2 == 0) print "even"; else print "odd" }' file.txt
+    Check even/odd using the modulo operator.
+
+awk '{
+    if ($1 > 50 && $2 < 10) print $1, "special"
+    else print $1, "normal"
+}' file.txt
+    Compound condition with && (logical AND).
+
+awk '{
+    if ($1 ~ /error/) print $1, "error found"
+    else print $1, "no error"
+}' file.txt
+    Match a regex pattern inside an if condition.
+
+awk '{
+    if ($1 > max) {
+        max = $1
+        topper = $2
+    }
+}
+END { print "Max:", max, "Name:", topper }' file.txt
+    Nested if block with multiple statements inside braces.
+
+awk 'BEGIN { x = 10; if (x > 5) print "yes"; else print "no" }'
+    if/else inside a BEGIN block, no input file needed.
