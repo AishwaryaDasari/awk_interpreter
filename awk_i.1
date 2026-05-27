@@ -1,0 +1,242 @@
+.TH AWK_I 1 "2026" "AWK Interpreter" "User Commands"
+.SH NAME
+awk_i \- pattern scanning and text processing language (Rust, Go, and Crystal implementations)
+.SH SYNOPSIS
+.B awk_rust
+[\fB\-F\fR \fIvalue\fR] [\fB\-v\fR \fIvar=value\fR] [\fB\-f\fR \fIfile\fR] \fI'program'\fR [\fIfile ...\fR]
+.PP
+.B awk_go
+[\fB\-F\fR \fIvalue\fR] [\fB\-v\fR \fIvar=value\fR] [\fB\-f\fR \fIfile\fR] \fI'program'\fR [\fIfile ...\fR]
+.PP
+.B awk_crystal
+[\fB\-F\fR \fIvalue\fR] [\fB\-v\fR \fIvar=value\fR] [\fB\-f\fR \fIfile\fR] \fI'program'\fR [\fIfile ...\fR]
+.SH DESCRIPTION
+AWK is a language for data manipulation, text retrieval, and prototyping algorithms.
+This interpreter is built from scratch in three languages \(em Rust, Go, and Crystal.
+All three produce identical output for the same input.
+.PP
+An AWK program is a sequence of \fIpattern { action }\fR pairs and function definitions.
+Short programs are entered on the command line in single quotes.
+Longer programs can be read from a file with \fB\-f\fR.
+Input is read from files given on the command line, or from standard input when none are given.
+Input is broken into records by \fBRS\fR (default: newline).
+Each record is compared against each pattern; on a match, the action is executed.
+.SH OPTIONS
+.TP
+.BI \-F " value"
+Set the field separator \fBFS\fR to \fIvalue\fR.
+.TP
+.BI \-v " var=value"
+Assign \fIvalue\fR to program variable \fIvar\fR. Multiple \fB\-v\fR options are allowed.
+.TP
+.BI \-f " file"
+Read the program from \fIfile\fR instead of the command line.
+.SH "THE AWK LANGUAGE"
+.SS Program Structure
+A program is a sequence of \fIpattern { action }\fR rules.
+If pattern is omitted, the action runs on every record.
+If action is omitted, the matching record is printed.
+.nf
+
+    { print }              # every line
+    /Sam/ { print }        # lines matching regex
+    NR > 1 { print }       # expression pattern
+.fi
+.SS Special Patterns
+.TP
+.B BEGIN
+Runs once before any input is read.
+.TP
+.B END
+Runs once after all input is processed.
+.TP
+.B BEGINFILE / ENDFILE
+Runs once at the start and end of each input file.
+.TP
+.B pat1, pat2
+Range pattern \(em matches all records from pat1 to pat2, inclusive.
+.SS Fields and Records
+.TP
+.B $0
+Entire current record.
+.TP
+.B $1, $2, ..., $n
+nth field (split by FS).
+.TP
+.B $NF
+Last field.
+.SS Built-in Variables
+.TS
+l l l.
+Variable	Default	Meaning
+FS	" "	Input field separator
+OFS	" "	Output field separator
+RS	"\\n"	Input record separator
+ORS	"\\n"	Output record separator
+NF	\-	Number of fields in current record
+NR	\-	Current record number (all files)
+FNR	\-	Record number within current file
+FILENAME	\-	Name of current input file
+RSTART	\-	Start position set by match()
+RLENGTH	\-	Length set by match()
+.TE
+.SS Operators
+Arithmetic: \fB+ \- * / % ^\fR
+.br
+Comparison: \fB== != < <= > >=\fR
+.br
+Logical: \fB&& || !\fR
+.br
+Regex: \fB~\fR (matches)  \fB!~\fR (does not match)
+.br
+Assignment: \fB= += \-= *= /= %= ++ \-\-\fR
+.br
+Ternary: \fIcond\fR \fB?\fR \fItrue\fR \fB:\fR \fIfalse\fR
+.br
+Concatenation: place values next to each other.
+.SS Statements
+.TP
+.B print
+Prints fields separated by OFS, followed by ORS.
+.nf
+    { print }
+    { print $1, $2 }
+    { print "Name:", $1 }
+.fi
+.TP
+.B printf
+Formatted output. Does not add a newline automatically.
+.nf
+    { printf "%s scored %d\\n", $1, $2 }
+.fi
+Specifiers: \fB%s\fR string, \fB%d\fR integer, \fB%f\fR float, \fB%e\fR scientific, \fB%g\fR shorter of %f/%e, \fB%%\fR literal %.
+.TP
+.B Output Redirection
+.nf
+    { print > "file" }     # overwrite
+    { print >> "file" }    # append
+    { print | "cmd" }      # pipe
+.fi
+.SS Control Flow
+.TP
+.B if / else
+.nf
+    if (expr) { ... } else if (expr) { ... } else { ... }
+.fi
+.TP
+.B while
+.nf
+    while (expr) { ... }
+.fi
+.TP
+.B for
+.nf
+    for (i = 1; i <= NF; i++) { ... }
+.fi
+.TP
+.B for-in
+.nf
+    for (key in array) { ... }
+.fi
+.TP
+.B next
+Skip remaining rules and move to the next record.
+.TP
+.B exit
+Stop processing immediately. END block still runs.
+.TP
+.B break / continue
+Used inside loops.
+.SS Arrays
+AWK arrays are associative (key \(-> value). Keys can be strings or numbers.
+.nf
+    { count[$1]++ }
+    END { for (k in count) print k, count[k] }
+    delete arr[key]
+    if (key in arr) { print "found" }
+.fi
+.SS Built-in String Functions
+.TP
+.BI length( s )
+Length of s; length of $0 if no argument.
+.TP
+.BI substr( s , start [ , len ])
+Substring of s from position start (1-based), optionally of length len.
+.TP
+.BI index( s , t )
+Position of t in s; 0 if not found.
+.TP
+.BI split( s , arr , sep )
+Split s into array arr by sep; returns count.
+.TP
+.BI sub( regex , repl , s )
+Replace first match of regex in s with repl.
+.TP
+.BI gsub( regex , repl , s )
+Replace all matches of regex in s with repl.
+.TP
+.BI match( s , regex )
+Position of regex in s; sets RSTART and RLENGTH.
+.TP
+.BI tolower( s )
+Convert s to lowercase.
+.TP
+.BI toupper( s )
+Convert s to uppercase.
+.TP
+.BI sprintf( fmt , ... )
+Format string like printf; return as string.
+.SS Built-in Math Functions
+\fBsin\fR(x), \fBcos\fR(x), \fBatan2\fR(y,x), \fBexp\fR(x), \fBlog\fR(x), \fBsqrt\fR(x), \fBint\fR(x), \fBrand\fR(), \fBsrand\fR(x)
+.SS User-Defined Functions
+.nf
+    function name(params,    locals) {
+        ...
+        return value
+    }
+.fi
+Extra parameters after a gap of spaces act as local variables.
+Functions can call other functions and themselves recursively.
+.SH EXAMPLES
+.nf
+# Print every line
+awk_rust '{print}' file.txt
+
+# Print first field
+awk_rust '{print $1}' file.txt
+
+# Filter by field value
+awk_rust '$2 > 70 {print $1}' file.txt
+
+# Sum a column
+awk_rust '{sum += $2} END {print "Total:", sum}' file.txt
+
+# Average a column
+awk_rust '{sum += $2} END {print "Average:", sum/NR}' file.txt
+
+# CSV input
+awk_rust -F, '{print $1, $3}' file.csv
+
+# Pre-set variable
+awk_rust -v threshold=70 '$2 > threshold {print $1}' file.txt
+
+# Program from file
+awk_rust -f program.awk file.txt
+
+# Count occurrences
+awk_rust '{count[$1]++} END {for (k in count) print k, count[k]}' file.txt
+
+# Grade report with user-defined function
+awk_rust '
+function grade(s) {
+    if (s >= 75) return "distinction"
+    if (s >= 50) return "pass"
+    return "fail"
+}
+{ print $1, grade($2) }' file.txt
+.fi
+.SH "SEE ALSO"
+.BR awk (1),
+.BR gawk (1)
+.SH AUTHORS
+Built from scratch in Rust, Go, and Crystal as part of a language implementation project.
