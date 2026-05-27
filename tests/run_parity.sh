@@ -146,6 +146,19 @@ run_test "loops: CSV with -F," \
 run_test "loops: test1.txt" \
     "$TESTS/script_loops.awk_rust" "$TESTS/test1.txt"
 
+# --- script_builtins.awk_rust (built-in string function tests) ---
+# Tests 1-28 -> test_input.txt
+run_test "builtins: string functions (length, substr, index, tolower, toupper, match, sub, gsub, split, sprintf)" \
+    "$TESTS/script_builtins.awk_rust" "$TESTS/test_input.txt"
+
+# Builtins -> test2.csv with -F,
+run_test "builtins: CSV with -F," \
+    "$TESTS/script_builtins.awk_rust" "$TESTS/test2.csv" "-F,"
+
+# Builtins -> test1.txt
+run_test "builtins: test1.txt" \
+    "$TESTS/script_builtins.awk_rust" "$TESTS/test1.txt"
+
 # ============================================================
 # SUMMARY
 # ============================================================

@@ -73,4 +73,6 @@ pub enum Expr {
     AssignOp(BinOpKind, String, Box<Expr>),
     Incr(String, bool),
     Decr(String, bool),
+    Call(String, Vec<Expr>),
+    ArrayAccess(String, Box<Expr>),
 }
