@@ -58,6 +58,9 @@ impl Parser {
         loop {
             match &self.curr {
                 Token::EOF => break,
+                Token::Newline => {
+                    self.advance();
+                }
                 Token::Begin => {
                     self.advance();
                     rules.push(Rule::Begin(self.parse_block()?));
@@ -98,7 +101,7 @@ impl Parser {
         Ok(Node::Program(rules))
     }
 
-    // ----- block parsing -----
+    // ----- block & statement parsing -----
 
     fn parse_block(&mut self) -> Result<Vec<Stmt>, String> {
         self.expect(&Token::LBrace)?;
@@ -106,23 +109,149 @@ impl Parser {
         loop {
             match &self.curr {
                 Token::RBrace | Token::EOF => break,
-                Token::Semicolon => {
+                Token::Semicolon | Token::Newline => {
                     self.advance();
                 }
-                Token::Print => {
-                    stmts.push(self.parse_print()?);
-                }
                 _ => {
-                    if self.can_start_expr() {
-                        stmts.push(Stmt::Expr(self.parse_expr()?));
-                    } else {
-                        return Err(self.err_unexpected());
-                    }
+                    stmts.push(self.parse_one_stmt()?);
                 }
             }
         }
         self.expect(&Token::RBrace)?;
         Ok(stmts)
+    }
+
+    fn parse_one_stmt(&mut self) -> Result<Stmt, String> {
+        match &self.curr {
+            Token::Print => self.parse_print(),
+            Token::If => self.parse_if(),
+            Token::While => self.parse_while_stmt(),
+            Token::Do => self.parse_do_while_stmt(),
+            Token::For => self.parse_for_stmt(),
+            Token::Break => {
+                self.advance();
+                Ok(Stmt::Break)
+            }
+            Token::Continue => {
+                self.advance();
+                Ok(Stmt::Continue)
+            }
+            Token::Next => {
+                self.advance();
+                Ok(Stmt::Next)
+            }
+            Token::Exit => self.parse_exit_stmt(),
+            _ => {
+                if self.can_start_expr() {
+                    Ok(Stmt::Expr(self.parse_expr()?))
+                } else {
+                    Err(self.err_unexpected())
+                }
+            }
+        }
+    }
+
+    fn parse_if(&mut self) -> Result<Stmt, String> {
+        self.advance();
+        self.expect(&Token::LParen)?;
+        let cond = self.parse_expr()?;
+        self.expect(&Token::RParen)?;
+        while self.curr == Token::Newline {
+            self.advance();
+        }
+        let then_body = self.parse_branch()?;
+        while self.curr == Token::Semicolon || self.curr == Token::Newline {
+            self.advance();
+        }
+        let mut else_body = Vec::new();
+        if self.curr == Token::Else {
+            self.advance();
+            else_body = self.parse_branch()?;
+        }
+        Ok(Stmt::If(cond, then_body, else_body))
+    }
+
+    fn parse_branch(&mut self) -> Result<Vec<Stmt>, String> {
+        if self.curr == Token::LBrace {
+            self.parse_block()
+        } else if self.curr == Token::Newline {
+            self.advance();
+            self.parse_branch()
+        } else {
+            let stmt = self.parse_one_stmt()?;
+            Ok(vec![stmt])
+        }
+    }
+
+    // ----- loop statements -----
+
+    fn parse_while_stmt(&mut self) -> Result<Stmt, String> {
+        self.advance();
+        self.expect(&Token::LParen)?;
+        let cond = self.parse_expr()?;
+        self.expect(&Token::RParen)?;
+        let body = self.parse_branch()?;
+        Ok(Stmt::While(cond, body))
+    }
+
+    fn parse_do_while_stmt(&mut self) -> Result<Stmt, String> {
+        self.advance();
+        let body = self.parse_branch()?;
+        while self.curr == Token::Newline || self.curr == Token::Semicolon {
+            self.advance();
+        }
+        self.expect(&Token::While)?;
+        self.expect(&Token::LParen)?;
+        let cond = self.parse_expr()?;
+        self.expect(&Token::RParen)?;
+        Ok(Stmt::DoWhile(body, cond))
+    }
+
+    fn parse_for_stmt(&mut self) -> Result<Stmt, String> {
+        self.advance();
+        self.expect(&Token::LParen)?;
+
+        let init = if self.curr != Token::Semicolon {
+            let expr = self.parse_expr()?;
+            if self.curr == Token::In {
+                self.advance();
+                let array = self.parse_expr()?;
+                self.expect(&Token::RParen)?;
+                let body = self.parse_branch()?;
+                match expr {
+                    Expr::Ident(var) => return Ok(Stmt::ForIn(var, array, body)),
+                    _ => return Err("for-in requires a variable name".to_string()),
+                }
+            }
+            Some(expr)
+        } else {
+            None
+        };
+        self.expect(&Token::Semicolon)?;
+        let cond = if self.curr != Token::Semicolon && self.curr != Token::RParen {
+            Some(self.parse_expr()?)
+        } else {
+            None
+        };
+        self.expect(&Token::Semicolon)?;
+        let incr = if self.curr != Token::RParen {
+            Some(self.parse_expr()?)
+        } else {
+            None
+        };
+        self.expect(&Token::RParen)?;
+        let body = self.parse_branch()?;
+        Ok(Stmt::For(init, cond, incr, body))
+    }
+
+    fn parse_exit_stmt(&mut self) -> Result<Stmt, String> {
+        self.advance();
+        let expr = if self.can_start_expr() {
+            Some(self.parse_expr()?)
+        } else {
+            None
+        };
+        Ok(Stmt::Exit(expr))
     }
 
     // ----- print statement -----
@@ -132,7 +261,7 @@ impl Parser {
         let mut exprs = Vec::new();
         loop {
             match &self.curr {
-                Token::RBrace | Token::EOF | Token::Semicolon => break,
+                Token::RBrace | Token::EOF | Token::Semicolon | Token::Newline => break,
                 Token::Comma => {
                     self.advance();
                 }

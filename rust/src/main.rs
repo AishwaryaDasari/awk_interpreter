@@ -4,7 +4,7 @@ use std::io::{self, BufRead};
 use std::process;
 
 use awk_rust::ast::{Node, Rule};
-use awk_rust::interp::Interp;
+use awk_rust::interp::{Flow, Interp};
 use awk_rust::lexer::Lexer;
 use awk_rust::parser::Parser;
 use awk_rust::value::Value;
@@ -144,46 +144,86 @@ fn main() {
         interp.env.set_var(name, Value::Str(val.clone()));
     }
 
-    let begin_out = interp.exec_begin(&node);
+    let mut exit_requested = false;
+
+    let (begin_out, begin_flow) = interp.exec_begin(&node);
     print!("{}", begin_out);
+    if matches!(begin_flow, Flow::Exit) {
+        exit_requested = true;
+    }
 
-    if files.is_empty() {
-        if needs_input(&node) {
-            interp.env.set_filename("");
-            for line in io::stdin().lock().lines() {
-                if let Ok(l) = line {
-                    let out = interp.exec_line(&node, &l);
+    if !exit_requested {
+        if files.is_empty() {
+            if needs_input(&node) {
+                interp.env.set_filename("");
+                interp.env.reset_fnr();
+                for line in io::stdin().lock().lines() {
+                    if let Ok(l) = line {
+                        let (out, flow) = interp.exec_line(&node, &l);
+                        print!("{}", out);
+                        match flow {
+                            Flow::Next => continue,
+                            Flow::Exit => break,
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        } else {
+            for file in &files {
+                if exit_requested {
+                    break;
+                }
+
+                interp.env.set_filename(file);
+                interp.env.reset_fnr();
+
+                let (bf_out, bf_flow) = interp.exec_begin_file(&node);
+                print!("{}", bf_out);
+                if matches!(bf_flow, Flow::Exit) {
+                    break;
+                }
+
+                let content = match fs::read_to_string(file) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        let err = e.to_string();
+                        let msg = err.split('(').next().unwrap_or("").trim();
+                        eprintln!("{}", msg);
+                        continue;
+                    }
+                };
+                interp.in_range = false;
+                for line in content.lines() {
+                    let (out, flow) = interp.exec_line(&node, line);
                     print!("{}", out);
+                    match flow {
+                        Flow::Next => continue,
+                        Flow::Exit => {
+                            exit_requested = true;
+                            break;
+                        }
+                        _ => {}
+                    }
+                }
+
+                if exit_requested {
+                    break;
+                }
+
+                let (ef_out, ef_flow) = interp.exec_end_file(&node);
+                print!("{}", ef_out);
+                if matches!(ef_flow, Flow::Exit) {
+                    break;
                 }
             }
-        }
-    } else {
-        for file in &files {
-            interp.env.set_filename(file);
-
-            let bf_out = interp.exec_begin_file(&node);
-            print!("{}", bf_out);
-
-            let content = match fs::read_to_string(file) {
-                Ok(c) => c,
-                Err(e) => {
-                    let err = e.to_string();
-                    let msg = err.split('(').next().unwrap_or("").trim();
-                    eprintln!("{}", msg);
-                    continue;
-                }
-            };
-            interp.in_range = false;
-            for line in content.lines() {
-                let out = interp.exec_line(&node, line);
-                print!("{}", out);
-            }
-
-            let ef_out = interp.exec_end_file(&node);
-            print!("{}", ef_out);
         }
     }
 
-    let end_out = interp.exec_end(&node);
+    let (end_out, _) = interp.exec_end(&node);
     print!("{}", end_out);
+
+    if let Some(code) = interp.exit_code {
+        process::exit(code as i32);
+    }
 }
