@@ -198,7 +198,40 @@ OUT=$(run_crystal 'BEGIN{a[1]="x"; delete a[1]; for(k in a) print k}' < /dev/nul
 if [ -z "$OUT" ]; then ok "for-in after delete"; else fail "for-in after delete" "empty" "$OUT"; fi
 
 # =====================================================================
-header "10. Printf"
+# =====================================================================
+header "10b. OFMT"
+assert_eq_noinput 'OFMT default float'  'BEGIN{print 3.1415926535}'
+assert_eq_noinput 'OFMT default int'    'BEGIN{print 42}'
+assert_eq_noinput 'OFMT override'       'BEGIN{OFMT="%d"; print 3.14}'
+assert_eq_noinput 'OFMT concat'         'BEGIN{x=2; print x ""}'
+assert_eq_noinput 'OFMT sqrt'           'BEGIN{print sqrt(2)}'
+
+# =====================================================================
+header "10c. Array membership in"
+assert_eq_noinput 'in true'   'BEGIN{a["x"]=1; print ("x" in a)}'
+assert_eq_noinput 'in false'  'BEGIN{a["x"]=1; print ("y" in a)}'
+assert_eq_noinput 'in if'     'BEGIN{a["x"]=1; if ("x" in a) print "y"}'
+assert_eq_noinput 'in number key' 'BEGIN{a[1]=1; print (1 in a)}'
+
+# =====================================================================
+header "10d. next in BEGIN/END"
+
+echo -n "  "
+RC=0
+"$AWK" 'BEGIN{next}' 2>/dev/null && RC=$? || RC=$?
+if [ "$RC" != 0 ]; then ok "next in BEGIN errors"; else fail "next in BEGIN errors" "non-zero" "$RC"; fi
+
+echo -n "  "
+RC=0
+OUT=$(printf "a\nb" | "$AWK" 'END{next}' 2>&1) && RC=$? || RC=$?
+if [ "$RC" != 0 ]; then ok "next in END errors"; else fail "next in END errors" "non-zero" "$RC"; fi
+
+echo -n "  "
+RC=0
+OUT=$(printf "a\nb" | "$AWK" '{next}' 2>&1) && RC=$? || RC=$?
+if [ "$RC" = 0 ]; then ok "next in pattern OK"; else fail "next in pattern OK" "0" "$RC"; fi
+
+header "11. Printf"
 assert_eq_noinput 'printf string'  'BEGIN{printf "%s", "hello"}'
 assert_eq_noinput 'printf int'     'BEGIN{printf "%d", 42}'
 assert_eq_noinput 'printf float'   'BEGIN{printf "%f", 3.14}'

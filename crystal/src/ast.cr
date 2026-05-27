@@ -174,6 +174,7 @@ enum BinOpKind
   Div
   Mod
   Pow
+  In
 end
 
 enum UnaryOpKind

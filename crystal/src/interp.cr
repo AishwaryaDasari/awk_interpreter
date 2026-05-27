@@ -10,64 +10,78 @@ class Interp
   getter env : Env
   property in_range : Bool
   getter exit_code : Int32
+  property in_special_block : Bool
   @regex_cache : Regex
 
   def initialize
     @env = Env.new
     @in_range = false
+    @in_special_block = false
     @regex_cache = Regex.new("")
     @exit_code = 0
   end
 
   def exec_begin(node : Program) : {String, ControlFlow}
     buf = String::Builder.new
+    @in_special_block = true
     node.rules.each do |rule|
       if rule.is_a?(Begin)
         signal = exec_stmts(rule.stmts, buf)
         if signal != ControlFlow::Normal
+          @in_special_block = false
           return {buf.to_s, signal}
         end
       end
     end
+    @in_special_block = false
     {buf.to_s, ControlFlow::Normal}
   end
 
   def exec_begin_file(node : Program) : {String, ControlFlow}
     buf = String::Builder.new
+    @in_special_block = true
     node.rules.each do |rule|
       if rule.is_a?(BeginFile)
         signal = exec_stmts(rule.stmts, buf)
         if signal != ControlFlow::Normal
+          @in_special_block = false
           return {buf.to_s, signal}
         end
       end
     end
+    @in_special_block = false
     {buf.to_s, ControlFlow::Normal}
   end
 
   def exec_end_file(node : Program) : {String, ControlFlow}
     buf = String::Builder.new
+    @in_special_block = true
     node.rules.each do |rule|
       if rule.is_a?(EndFile)
         signal = exec_stmts(rule.stmts, buf)
         if signal != ControlFlow::Normal
+          @in_special_block = false
           return {buf.to_s, signal}
         end
       end
     end
+    @in_special_block = false
     {buf.to_s, ControlFlow::Normal}
   end
 
   def exec_end(node : Program) : {String, ControlFlow}
     buf = String::Builder.new
+    @in_special_block = true
     node.rules.each do |rule|
       if rule.is_a?(End)
         signal = exec_stmts(rule.stmts, buf)
         if signal != ControlFlow::Normal
+          @in_special_block = false
           return {buf.to_s, signal}
         end
       end
     end
+    @in_special_block = false
     {buf.to_s, ControlFlow::Normal}
   end
 
@@ -121,6 +135,9 @@ class Interp
     when ContinueStmt
       ControlFlow::Continue
     when NextStmt
+      if @in_special_block
+        raise "`next' is not allowed in BEGIN, END, BEGINFILE, or ENDFILE rules"
+      end
       ControlFlow::Next
     when ExitStmt
       if e = stmt.expr
@@ -137,10 +154,10 @@ class Interp
 
   private def exec_print(exprs : Array(Expr), buf : String::Builder)
     if exprs.empty?
-      buf << @env.get_field(0_u64).to_s << @env.ors
+      buf << @env.get_field(0_u64).format(@env.ofmt) << @env.ors
       return
     end
-    parts = exprs.map { |e| eval_expr(e).to_s }
+    parts = exprs.map { |e| eval_expr(e).format(@env.ofmt) }
     parts.each_with_index do |part, i|
       buf << @env.ofs if i > 0
       buf << part
@@ -562,7 +579,7 @@ class Interp
     when "srand"
       AwkValue.new(0.0)
     else
-      AwkValue.new(0.0)
+      raise "function `#{name}' not defined"
     end
   end
 
@@ -571,7 +588,12 @@ class Interp
     when BinOpKind::Concat
       lv = eval_expr(expr.lhs)
       rv = eval_expr(expr.rhs)
-      AwkValue.new(lv.to_s + rv.to_s)
+      AwkValue.new(lv.format(@env.ofmt) + rv.format(@env.ofmt))
+    when BinOpKind::In
+      key = eval_expr(expr.lhs).to_s
+      array_name = expr.rhs.is_a?(IdentExpr) ? expr.rhs.as(IdentExpr).name : eval_expr(expr.rhs).to_s
+      exists = @env.array_has(array_name, key)
+      AwkValue.new(exists ? 1.0 : 0.0)
     when BinOpKind::And
       lv = eval_expr(expr.lhs)
       return lv unless is_truthy(lv)

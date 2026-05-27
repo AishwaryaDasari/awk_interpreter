@@ -8,6 +8,7 @@ class Env
   property fs : String
   property ofs : String
   property ors : String
+  property ofmt : String
 
   def initialize
     @fields = [] of AwkValue
@@ -19,6 +20,7 @@ class Env
     @fs = " "
     @ofs = " "
     @ors = "\n"
+    @ofmt = "%.6g"
   end
 
   def set_filename(name : String)
@@ -89,6 +91,8 @@ class Env
       AwkValue.new(@ors)
     when "RS"
       AwkValue.new("\n")
+    when "OFMT"
+      AwkValue.new(@ofmt)
     else
       @vars.fetch(name) { AwkValue.new(0.0) }
     end
@@ -102,6 +106,8 @@ class Env
       @ofs = value.to_s
     when "ORS"
       @ors = value.to_s
+    when "OFMT"
+      @ofmt = value.to_s
     else
       @vars[name] = value
     end
@@ -132,6 +138,11 @@ class Env
     else
       @arrays.delete(name)
     end
+  end
+
+  def array_has(name : String, key : String) : Bool
+    arr = @arrays[name]?
+    arr ? arr.has_key?(key) : false
   end
 
   def array_keys(name : String) : Array(String)

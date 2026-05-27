@@ -440,6 +440,10 @@ class Parser
       advance
       rhs = parse_match
       expr = BinOpExpr.new(expr, kind, rhs)
+    elsif @curr.kind == TokenKind::In
+      advance
+      rhs = parse_match
+      expr = BinOpExpr.new(expr, BinOpKind::In, rhs)
     end
     expr
   end

@@ -57,61 +57,66 @@ def main
   interp = Interp.new
   interp.env.fs = fs
 
-  b_out, b_signal = interp.exec_begin(node)
-  print b_out
-  if b_signal == ControlFlow::Exit
-    exit(interp.exit_code)
-  end
-
-  line_loop = ->(line : String) {
-    line = line.chomp
-    result, signal = interp.exec_line(node, line, interp.env.fs)
-    print result
-    if signal == ControlFlow::Exit
+  begin
+    b_out, b_signal = interp.exec_begin(node)
+    print b_out
+    if b_signal == ControlFlow::Exit
       exit(interp.exit_code)
     end
-    signal
-  }
 
-  if !files.empty?
-    files.each do |file|
-      interp.env.set_filename(file)
-
-      bf_out, bf_signal = interp.exec_begin_file(node)
-      print bf_out
-      if bf_signal == ControlFlow::Exit
-        exit(interp.exit_code)
-      end
-
-      content = File.read(file)
-      interp.in_range = false
-      content.each_line do |line|
-        signal = line_loop.call(line)
-        break if signal == ControlFlow::Exit
-      end
-
-      ef_out, ef_signal = interp.exec_end_file(node)
-      print ef_out
-      if ef_signal == ControlFlow::Exit
-        exit(interp.exit_code)
-      end
-    end
-  elsif node.needs_input?
-    interp.env.set_filename("")
-    STDIN.each_line do |line|
+    line_loop = ->(line : String) {
       line = line.chomp
       result, signal = interp.exec_line(node, line, interp.env.fs)
       print result
       if signal == ControlFlow::Exit
         exit(interp.exit_code)
       end
-    end
-  end
+      signal
+    }
 
-  e_out, e_signal = interp.exec_end(node)
-  print e_out
-  if e_signal == ControlFlow::Exit
-    exit(interp.exit_code)
+    if !files.empty?
+      files.each do |file|
+        interp.env.set_filename(file)
+
+        bf_out, bf_signal = interp.exec_begin_file(node)
+        print bf_out
+        if bf_signal == ControlFlow::Exit
+          exit(interp.exit_code)
+        end
+
+        content = File.read(file)
+        interp.in_range = false
+        content.each_line do |line|
+          signal = line_loop.call(line)
+          break if signal == ControlFlow::Exit
+        end
+
+        ef_out, ef_signal = interp.exec_end_file(node)
+        print ef_out
+        if ef_signal == ControlFlow::Exit
+          exit(interp.exit_code)
+        end
+      end
+    elsif node.needs_input?
+      interp.env.set_filename("")
+      STDIN.each_line do |line|
+        line = line.chomp
+        result, signal = interp.exec_line(node, line, interp.env.fs)
+        print result
+        if signal == ControlFlow::Exit
+          exit(interp.exit_code)
+        end
+      end
+    end
+
+    e_out, e_signal = interp.exec_end(node)
+    print e_out
+    if e_signal == ControlFlow::Exit
+      exit(interp.exit_code)
+    end
+  rescue ex
+    STDERR.puts "error: #{ex.message}"
+    exit(1)
   end
 end
 

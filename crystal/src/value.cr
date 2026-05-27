@@ -41,6 +41,17 @@ class AwkValue
     end
   end
 
+  def format(ofmt : String) : String
+    case v = @raw
+    when String
+      v
+    when Float64
+      sprintf(ofmt, v)
+    else
+      ""
+    end
+  end
+
   def ==(other : AwkValue) : Bool
     a = @raw
     b = other.raw
