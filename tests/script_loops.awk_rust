@@ -1,0 +1,187 @@
+# script_loops.awk_rust - awk loop test cases (basic + complex)
+# Run: awk -f script_loops.awk_rust test_input.txt
+#      awk -F, -f script_loops.awk_rust test2.csv
+#      awk -f script_loops.awk_rust test1.txt
+#
+# NOTE: Uses only constructs supported by awk_rust (no printf args, no arrays,
+#       no function calls like substr/length/split)
+
+# ============================================================
+# BASIC LOOP TESTS
+# ============================================================
+
+# --- TEST 1: while loop over fields ---
+BEGIN { print "=== TEST 1: while loop - iterate fields per record (first 10) ===" }
+NR <= 10 {
+    s = "Record " NR " fields: "
+    i = 1
+    while (i <= NF) {
+        s = s $i
+        if (i < NF) s = s ", "
+        i++
+    }
+    print s
+}
+
+# --- TEST 2: for loop (C-style) over fields ---
+BEGIN { print "=== TEST 2: for loop (C-style) - print field indices (first 10) ===" }
+NR <= 10 {
+    s = "NR=" NR ": "
+    for (i = 1; i <= NF; i++) {
+        s = s "$" i "=" $i " "
+    }
+    print s
+}
+
+# --- TEST 3: for loop - sum of numeric fields ---
+BEGIN { print "=== TEST 3: for loop - sum of numeric fields per record (first 10) ===" }
+NR <= 10 {
+    sum = 0
+    for (i = 1; i <= NF; i++) {
+        val = $i + 0
+        if (val > 0) sum = sum + val
+    }
+    if (sum > 0) print NR, $1, "sum:", sum
+}
+
+# --- TEST 4: do-while loop ---
+BEGIN { print "=== TEST 4: do-while loop - print first 3 fields reversed (first 10) ===" }
+NR <= 10 {
+    s = "NR=" NR ": "
+    n = NF
+    if (n > 3) n = 3
+    i = n
+    do {
+        s = s $i
+        if (i > 1) s = s " "
+        i--
+    } while (i >= 1)
+    print s
+}
+
+# ============================================================
+# COMPLEX LOOP TESTS
+# ============================================================
+
+# --- TEST 5: Nested for loops ---
+BEGIN { print "=== TEST 5: Nested for loops - simulate multiplication grid on first 3 fields ===" }
+NR <= 5 {
+    s = "NR=" NR " multipliers: "
+    for (i = 1; i <= 3; i++) {
+        val = $i + 0
+        if (val == 0) val = i
+        s = s "("
+        for (j = 1; j <= 3; j++) {
+            mult = $j + 0
+            if (mult == 0) mult = j
+            s = s val * mult
+            if (j < 3) s = s ","
+        }
+        s = s ")"
+        if (i < 3) s = s " "
+    }
+    print s
+}
+
+# --- TEST 6: break in for loop (stop after 5 non-HR) ---
+BEGIN { print "=== TEST 6: break in for loop - stop after 5 non-HR records ===" }
+{
+    for (i = 1; i <= 1; i++) {
+        if ($4 == "HR") break
+        count++
+        if (count > 5) break
+        print "Non-HR record", count, ":", $1, $2, $4
+    }
+}
+
+# --- TEST 6b: continue in while loop ---
+BEGIN { print "=== TEST 6b: continue in while loop - skip numeric fields (first 5 records) ===" }
+NR <= 5 {
+    s = "NR=" NR " non-numeric: "
+    i = 1
+    while (i <= NF) {
+        if ($i ~ /^[0-9]+(\.[0-9]+)?$/) { i++; continue }
+        s = s $i " "
+        i++
+    }
+    print s
+}
+
+# --- TEST 7: Loop with if-else inside, building running totals ---
+BEGIN { print "=== TEST 7: Loop with if-else - categorize salaries (first 10) ===" }
+NR <= 10 {
+    low = 0; mid = 0; high = 0
+    for (i = 1; i <= NF; i++) {
+        val = $i + 0
+        if (val > 0) {
+            if (val < 50000) low++
+            else if (val < 65000) mid++
+            else high++
+        }
+    }
+    if (low > 0 || mid > 0 || high > 0)
+        print NR, $1, $2, "-> low:", low, "mid:", mid, "high:", high
+}
+
+# --- TEST 8: while loop concatenating string fields ---
+BEGIN { print "=== TEST 8: while loop - concatenate non-numeric fields as name (first 10) ===" }
+NR <= 10 {
+    result = ""
+    i = 2
+    while (i <= NF) {
+        if ($i ~ /^[0-9]+(\.[0-9]+)?$/) break
+        result = result $i " "
+        i++
+    }
+    print NR, "name:", result
+}
+
+# --- TEST 9: for loop walking fields backwards ---
+BEGIN { print "=== TEST 9: For loop descending - print fields in reverse order ===" }
+NR <= 5 {
+    s = "NR=" NR " rev: "
+    for (i = NF; i >= 1; i--) {
+        s = s $i
+        if (i > 1) s = s " "
+    }
+    print s
+}
+
+# --- TEST 10: for loop with range classification (no arrays) ---
+BEGIN { print "=== TEST 10: for loop - classify salary range per record (first 10) ===" }
+NR <= 10 {
+    for (i = 1; i <= NF; i++) {
+        val = $i + 0
+        if (val > 0) {
+            if (val < 50000) print NR, $1, "field" i, val, "<50k"
+            else if (val < 65000) print NR, $1, "field" i, val, "50-65k"
+            else print NR, $1, "field" i, val, ">65k"
+        }
+    }
+}
+
+# --- TEST 11: while loop counting fields until condition ---
+BEGIN { print "=== TEST 11: while loop - count string fields before first numeric (first 10) ===" }
+NR <= 10 {
+    count = 0
+    i = 1
+    while (i <= NF) {
+        if ($i ~ /^[0-9]+(\.[0-9]+)?$/) break
+        count++
+        i++
+    }
+    print NR, $1, "string fields before numeric:", count
+}
+
+# --- TEST 12: For loop with explicit break condition (find first numeric field) ---
+BEGIN { print "=== TEST 12: For loop with break - find first numeric field ===" }
+NR <= 10 {
+    s = "NR=" NR " " $1 " first-num: "
+    for (i = 1; i <= NF; i++) {
+        if ($i ~ /^[0-9]+(\.[0-9]+)?$/) {
+            s = s "$" i "=" $i
+            break
+        }
+    }
+    print s
+}
