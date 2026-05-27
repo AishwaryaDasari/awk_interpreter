@@ -23,6 +23,14 @@ pub enum Stmt {
     Print(Vec<Expr>),
     Expr(Expr),
     If(Expr, Vec<Stmt>, Vec<Stmt>),
+    While(Expr, Vec<Stmt>),
+    DoWhile(Vec<Stmt>, Expr),
+    For(Option<Expr>, Option<Expr>, Option<Expr>, Vec<Stmt>),
+    ForIn(String, Expr, Vec<Stmt>),
+    Break,
+    Continue,
+    Next,
+    Exit(Option<Expr>),
 }
 
 #[derive(Debug, Clone, PartialEq)]

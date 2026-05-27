@@ -279,8 +279,8 @@ END PROCEDURE
 | 3 | BEGIN / END + regex patterns | ✅ Done | 🔲 Planned | ✅ Done |
 | 4 | Variables and arithmetic | ✅ Done | 🔲 Planned | ✅ Done |
 | 5 | Field separator | ✅ Done | ✅ Done | ✅ Done |
-| 6 | if / else | 🔲 Planned | 🔲 Planned | ✅ Done |
-| 7 | Loops | 🔲 Planned | 🔲 Planned | ✅ Done |
+| 6 | if / else | ✅ Done | 🔲 Planned | ✅ Done |
+| 7 | Loops | ✅ Done | 🔲 Planned | ✅ Done |
 | 8 | Built-in string functions | 🔲 Planned | 🔲 Planned | ✅ Done |
 | 9 | Arrays | 🔲 Planned | 🔲 Planned | ✅ Done |
 | 10 | printf | 🔲 Planned | 🔲 Planned | ✅ Done |
