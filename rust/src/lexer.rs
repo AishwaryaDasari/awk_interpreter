@@ -1,6 +1,8 @@
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     Print,
+    If,
+    Else,
     Begin,
     End,
     BeginFile,
@@ -44,6 +46,7 @@ pub enum Token {
     Ident(String),
     Invalid(char),
     EOF,
+    Newline,
 }
 
 pub struct Lexer {
@@ -67,6 +70,14 @@ impl Lexer {
             return Token::EOF;
         }
         let ch = self.input[self.pos];
+        if ch == '\n' || ch == '\r' {
+            self.pos += 1;
+            if ch == '\r' && self.pos < self.input.len() && self.input[self.pos] == '\n' {
+                self.pos += 1;
+            }
+            self.prev_was_operand = false;
+            return Token::Newline;
+        }
         let tok = match ch {
             '{' => {
                 self.pos += 1;
@@ -262,7 +273,9 @@ impl Lexer {
     }
 
     fn skip_whitespace(&mut self) {
-        while self.pos < self.input.len() && self.input[self.pos].is_ascii_whitespace() {
+        while self.pos < self.input.len()
+            && (self.input[self.pos] == ' ' || self.input[self.pos] == '\t')
+        {
             self.pos += 1;
         }
     }
@@ -325,6 +338,8 @@ impl Lexer {
         let s: String = self.input[start..self.pos].iter().collect();
         match s.as_str() {
             "print" => Token::Print,
+            "if" => Token::If,
+            "else" => Token::Else,
             "BEGIN" => Token::Begin,
             "END" => Token::End,
             "BEGINFILE" => Token::BeginFile,

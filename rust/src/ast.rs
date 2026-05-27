@@ -22,6 +22,7 @@ pub enum Pattern {
 pub enum Stmt {
     Print(Vec<Expr>),
     Expr(Expr),
+    If(Expr, Vec<Stmt>, Vec<Stmt>),
 }
 
 #[derive(Debug, Clone, PartialEq)]

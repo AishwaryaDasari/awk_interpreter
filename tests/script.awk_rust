@@ -1,4 +1,64 @@
-# script.awk
-/am/ {
-    print $1, $2
+# script.awk_rust - awk if-else test cases
+# Run: awk -f script.awk_rust test_input.txt
+#      awk -F, -f script.awk_rust test2.csv
+#      awk -f script.awk_rust test1.txt
+
+BEGIN { print "=== TEST 1: Pattern match /am/ -> print $1, $2 ===" }
+/am/ { print $1, $2 }
+
+BEGIN { print "=== TEST 2: if-else with NR (record number) ===" }
+NR > 5 { print NR, $1, ">5" }
+NR <= 5 { print NR, $1, "<=5" }
+
+BEGIN { print "=== TEST 3: if-else-if chain (marks) [run: awk -f script.awk_rust test1.txt] ===" }
+FNR == 1 && NR <= 100 {
+    if ($2 + 0 >= 80) print $1, "Excellent"
+    else if ($2 + 0 >= 70) print $1, "Good"
+    else print $1, "Average"
+}
+
+BEGIN { print "=== TEST 4: if-else with NF (field count) ===" }
+NF >= 5 { print "many fields:", $0 }
+NF < 5 { print "few fields:", $0 }
+
+BEGIN { print "=== TEST 5: String matching (dept) ===" }
+$0 ~ /HR/ { print "HR dept:", $1, $2 }
+$0 ~ /Finance/ { print "Finance dept:", $1, $2 }
+$0 ~ /Engineering/ { print "Engineering dept:", $1, $2 }
+
+BEGIN { print "=== TEST 6: Numeric ranges on years (col 5) ===" }
+$5 >= 20 { print $1, $2, "senior (>=20yr)" }
+$5 >= 10 { print $1, $2, "mid (10-19yr)" }
+$5 < 10 { print $1, $2, "junior (<10yr)" }
+
+BEGIN { print "=== TEST 7: if-else-if with CSV grades [run: awk -F, -f script.awk_rust test2.csv] ===" }
+FNR > 1 && $0 ~ /,/ {
+    if ($5 + 0 >= 90) print $2, $3, "A+ grade"
+    else if ($5 + 0 >= 75) print $2, $3, "A grade"
+    else if ($5 + 0 >= 60) print $2, $3, "B grade"
+    else print $2, $3, "C grade"
+}
+
+BEGIN { print "=== TEST 8: Nested if-else (dept + salary) ===" }
+$0 ~ /E0[0-9][0-9]/ {
+    if ($4 == "Sales") {
+        if ($5 + 0 > 60000) print $1, "high-salary sales"
+        else print $1, "low-salary sales"
+    } else {
+        if ($5 + 0 > 60000) print $1, "high-salary non-sales"
+        else print $1, "low-salary non-sales"
+    }
+}
+
+BEGIN { print "=== TEST 9: Compound conditions (&&, ||) ===" }
+$0 ~ /Martin|Rodriguez/ && $5 + 0 > 50000 { print $1, $2, "matched AND condition" }
+$0 ~ /Marketing/ || $4 == "Sales" { print $1, $4, "Marketing or Sales" }
+
+BEGIN { print "=== TEST 10: Ternary conditional ===" }
+{ print $1, ($5 + 0 > 60000 ? "high" : "low") }
+
+BEGIN { print "=== TEST 11: if-else with field prefix ===" }
+$1 ~ /^E[0-9][0-9][0-9]$/ {
+    if ($1 ~ /0[0-9][0-9]/) print $1, "early ID"
+    else print $1, "late ID"
 }

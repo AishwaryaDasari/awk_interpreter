@@ -150,6 +150,7 @@ fn main() {
     if files.is_empty() {
         if needs_input(&node) {
             interp.env.set_filename("");
+            interp.env.reset_fnr();
             for line in io::stdin().lock().lines() {
                 if let Ok(l) = line {
                     let out = interp.exec_line(&node, &l);
@@ -160,6 +161,7 @@ fn main() {
     } else {
         for file in &files {
             interp.env.set_filename(file);
+            interp.env.reset_fnr();
 
             let bf_out = interp.exec_begin_file(&node);
             print!("{}", bf_out);

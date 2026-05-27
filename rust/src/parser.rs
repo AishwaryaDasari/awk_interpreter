@@ -58,6 +58,9 @@ impl Parser {
         loop {
             match &self.curr {
                 Token::EOF => break,
+                Token::Newline => {
+                    self.advance();
+                }
                 Token::Begin => {
                     self.advance();
                     rules.push(Rule::Begin(self.parse_block()?));
@@ -98,7 +101,7 @@ impl Parser {
         Ok(Node::Program(rules))
     }
 
-    // ----- block parsing -----
+    // ----- block & statement parsing -----
 
     fn parse_block(&mut self) -> Result<Vec<Stmt>, String> {
         self.expect(&Token::LBrace)?;
@@ -106,23 +109,62 @@ impl Parser {
         loop {
             match &self.curr {
                 Token::RBrace | Token::EOF => break,
-                Token::Semicolon => {
+                Token::Semicolon | Token::Newline => {
                     self.advance();
                 }
-                Token::Print => {
-                    stmts.push(self.parse_print()?);
-                }
                 _ => {
-                    if self.can_start_expr() {
-                        stmts.push(Stmt::Expr(self.parse_expr()?));
-                    } else {
-                        return Err(self.err_unexpected());
-                    }
+                    stmts.push(self.parse_one_stmt()?);
                 }
             }
         }
         self.expect(&Token::RBrace)?;
         Ok(stmts)
+    }
+
+    fn parse_one_stmt(&mut self) -> Result<Stmt, String> {
+        match &self.curr {
+            Token::Print => self.parse_print(),
+            Token::If => self.parse_if(),
+            _ => {
+                if self.can_start_expr() {
+                    Ok(Stmt::Expr(self.parse_expr()?))
+                } else {
+                    Err(self.err_unexpected())
+                }
+            }
+        }
+    }
+
+    fn parse_if(&mut self) -> Result<Stmt, String> {
+        self.advance();
+        self.expect(&Token::LParen)?;
+        let cond = self.parse_expr()?;
+        self.expect(&Token::RParen)?;
+        while self.curr == Token::Newline {
+            self.advance();
+        }
+        let then_body = self.parse_branch()?;
+        while self.curr == Token::Semicolon || self.curr == Token::Newline {
+            self.advance();
+        }
+        let mut else_body = Vec::new();
+        if self.curr == Token::Else {
+            self.advance();
+            else_body = self.parse_branch()?;
+        }
+        Ok(Stmt::If(cond, then_body, else_body))
+    }
+
+    fn parse_branch(&mut self) -> Result<Vec<Stmt>, String> {
+        if self.curr == Token::LBrace {
+            self.parse_block()
+        } else if self.curr == Token::Newline {
+            self.advance();
+            self.parse_branch()
+        } else {
+            let stmt = self.parse_one_stmt()?;
+            Ok(vec![stmt])
+        }
     }
 
     // ----- print statement -----
@@ -132,7 +174,7 @@ impl Parser {
         let mut exprs = Vec::new();
         loop {
             match &self.curr {
-                Token::RBrace | Token::EOF | Token::Semicolon => break,
+                Token::RBrace | Token::EOF | Token::Semicolon | Token::Newline => break,
                 Token::Comma => {
                     self.advance();
                 }

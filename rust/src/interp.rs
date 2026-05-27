@@ -84,6 +84,9 @@ impl Interp {
                 Stmt::Expr(expr) => {
                     self.eval_expr(expr);
                 }
+                Stmt::If(cond, then_body, else_body) => {
+                    self.exec_if(cond, then_body, else_body, out);
+                }
             }
         }
     }
@@ -105,6 +108,15 @@ impl Interp {
             out.push_str(&part.as_str());
         }
         out.push('\n');
+    }
+
+    fn exec_if(&mut self, cond: &Expr, then_body: &[Stmt], else_body: &[Stmt], out: &mut String) {
+        let cv = self.eval_expr(cond);
+        if self.is_truthy(&cv) {
+            self.exec_stmts(then_body, out);
+        } else if !else_body.is_empty() {
+            self.exec_stmts(else_body, out);
+        }
     }
 
     fn matches_pattern(&mut self, pattern: &Pattern) -> bool {
