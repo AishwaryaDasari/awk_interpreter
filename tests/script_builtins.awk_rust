@@ -1,0 +1,226 @@
+# script_builtins.awk_rust - awk built-in string function test cases
+# Run: awk -f script_builtins.awk_rust test_input.txt
+#      awk -f script_builtins.awk_rust test1.txt
+#      awk -F, -f script_builtins.awk_rust test2.csv
+#
+# NOTE: awk_rust does NOT yet support function calls or arrays.
+#       These tests document what should work once implemented.
+
+# ============================================================
+# STRING LENGTH
+# ============================================================
+
+BEGIN { print "=== TEST 1: length() - string length ===" }
+NR <= 5 { print NR, $1, "len:", length($1), "| full len:", length($0) }
+
+BEGIN { print "=== TEST 2: length() on empty and short strings ===" }
+NR <= 3 { print NR, "field2 len:", length($2), "field3 len:", length($3) }
+
+# ============================================================
+# SUBSTR - substring extraction
+# ============================================================
+
+BEGIN { print "=== TEST 3: substr() - first 2 chars of field 1 ===" }
+NR <= 5 { print NR, $1, "first2:", substr($1, 1, 2), "from3:", substr($1, 3) }
+
+BEGIN { print "=== TEST 4: substr() - extract name initials ===" }
+NR <= 5 {
+    print NR, substr($2, 1, 1) "." substr($3, 1, 1)
+}
+
+BEGIN { print "=== TEST 5: substr() - extract dept from end ===" }
+NR <= 5 { print NR, "last3 of dept:", substr($4, length($4) - 2) }
+
+# ============================================================
+# INDEX - find substring position
+# ============================================================
+
+BEGIN { print "=== TEST 6: index() - find substring in name ===" }
+NR <= 8 {
+    pos = index($2, "a")
+    print NR, $2, "first 'a' at:", pos
+}
+
+BEGIN { print "=== TEST 7: index() - find common substrings ===" }
+NR <= 5 {
+    print NR, "ar in", $3, ":", index($3, "ar")
+    print NR, "son in", $3, ":", index($3, "son")
+}
+
+# ============================================================
+# TOLOWER / TOUPPER - case conversion
+# ============================================================
+
+BEGIN { print "=== TEST 8: tolower() - department lowercase ===" }
+NR <= 5 { print NR, $4, "->", tolower($4) }
+
+BEGIN { print "=== TEST 9: toupper() - name uppercase ===" }
+NR <= 5 { print NR, $2, $3, "->", toupper($2), toupper($3) }
+
+# ============================================================
+# MATCH - regex match (returns position or 0)
+# ============================================================
+
+BEGIN { print "=== TEST 10: match() - regex match position ===" }
+NR <= 10 {
+    pos = match($0, /[Mm]art(in|inez|in)/)
+    if (pos > 0) print NR, $1, "matched 'Mart*' at pos:", pos
+    else print NR, $1, "no match for 'Mart*'"
+}
+
+BEGIN { print "=== TEST 11: match() with RSTART and RLENGTH ===" }
+NR <= 10 {
+    if (match($0, /[0-9]{5,}/)) {
+        print NR, "RSTART:", RSTART, "RLENGTH:", RLENGTH, "match:", substr($0, RSTART, RLENGTH)
+    }
+}
+
+# ============================================================
+# SUB / GSUB - string substitution
+# ============================================================
+
+BEGIN { print "=== TEST 12: sub() - replace first occurrence (on $0) ===" }
+NR <= 3 {
+    print NR, "original:", $0
+    sub(/[0-9]/, "X")
+    print NR, "sub once:", $0
+}
+
+BEGIN { print "=== TEST 13: gsub() - replace all occurrences (on $0) ===" }
+NR <= 3 {
+    print NR, "original:", $0
+    n = gsub(/[aeiou]/, "_")
+    print NR, "gsub vowels (count:", n "):", $0
+}
+
+BEGIN { print "=== TEST 14: sub() with capture groups (on $0) ===" }
+NR <= 3 {
+    print NR, "original:", $0
+    sub(/(E[0-9]+)/, "[ID:&]")
+    print NR, "captured:", $0
+}
+
+# ============================================================
+# SPLIT - string into array + for-in loop
+# ============================================================
+
+BEGIN { print "=== TEST 15: split() - count fields (no array access) ===" }
+NR <= 3 {
+    n = split($0, parts)
+    print NR, "split into", n, "parts"
+}
+
+BEGIN { print "=== TEST 16: split() with custom comma separator ===" }
+NR == 1 {
+    n = split($0, fields, ",")
+    print "CSV header has", n, "columns"
+}
+
+BEGIN { print "=== TEST 17: split() single-char delimiter ===" }
+NR <= 2 {
+    n = split($0, arr, " ")
+    print NR, "split by space:", n, "fields"
+}
+
+# ============================================================
+# SPRINTF - formatted string creation
+# ============================================================
+
+BEGIN { print "=== TEST 18: sprintf() - formatted strings ===" }
+NR <= 5 {
+    formatted = sprintf("ID=%-5s | NAME=%-10s | DEPT=%-10s | SAL=%6d", $1, $2, $4, $5 + 0)
+    print NR, formatted
+}
+
+BEGIN { print "=== TEST 19: sprintf() - numeric formatting ===" }
+NR <= 5 {
+    sal = $5 + 0
+    pct = (sal - 40000) / 40000 * 100
+    print NR, sprintf("%s: $%0.2f (%5.1f%%)", $2, sal, pct)
+}
+
+# ============================================================
+# COMBINED / COMPLEX STRING OPERATIONS
+# ============================================================
+
+BEGIN { print "=== TEST 20: Combined - extract domain-like initials ===" }
+NR <= 5 {
+    first = tolower(substr($2, 1, 1))
+    last = tolower($3)
+    print NR, first "." last "@company.com"
+}
+
+BEGIN { print "=== TEST 21: Combined - sanitize and reformat ===" }
+NR <= 3 {
+    line = $0
+    gsub(/[0-9]/, "#", line)
+    gsub(/[aeiouAEIOU]/, "", line)
+    gsub(/  +/, " ", line)
+    print NR, "scrubbed:", line
+}
+
+BEGIN { print "=== TEST 22: Combined - conditional split + direct field access ===" }
+NR <= 5 {
+    n = split($0, data, " ")
+    if (n >= 5) {
+        print NR, "id:", $1, "dept:", $4, "salary:", $5
+    }
+}
+
+BEGIN { print "=== TEST 23: index() + substr() - extract between markers ===" }
+NR <= 5 {
+    line = $0
+    a = index(line, "a")
+    b = index(line, "e")
+    if (a > 0 && b > a)
+        print NR, "between a-e:", substr(line, a + 1, b - a - 1)
+}
+
+BEGIN { print "=== TEST 24: length() in loop for padding ===" }
+NR <= 5 {
+    padded = $0
+    l = length(padded)
+    while (l < 60) {
+        padded = padded "."
+        l = l + 1
+    }
+    print NR, padded "|"
+}
+
+# ============================================================
+# EDGE CASES
+# ============================================================
+
+BEGIN { print "=== TEST 25: substr() edge cases ===" }
+NR <= 3 {
+    print NR, "start=0:", substr($1, 0, 2)
+    print NR, "start=5:", substr($1, 5, 3)
+    print NR, "len=0:", substr($1, 1, 0)
+    print NR, "no len:", substr($1, 2)
+}
+
+BEGIN { print "=== TEST 26: index() edge cases ===" }
+NR <= 2 {
+    print NR, "empty sub:", index($1, "")
+    print NR, "not found:", index($1, "ZZZZ")
+    print NR, "full match:", index($1, $1)
+}
+
+BEGIN { print "=== TEST 27: match() with empty/invalid pattern ===" }
+NR <= 2 {
+    if (match($0, /^E[0-9]+/)) {
+        print NR, "starts with E:", substr($0, RSTART, RLENGTH)
+    }
+}
+
+BEGIN { print "=== TEST 28: split edge cases ===" }
+NR == 1 {
+    n = split("", empty_arr)
+    print "split empty string:", n, "parts"
+
+    n = split("a,b,c", arr, ",")
+    print "split 'a,b,c' by comma:", n, "parts"
+
+    n = split("a,b,c,", arr, ",")
+    print "trailing comma gives", n, "parts"
+}

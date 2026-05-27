@@ -492,7 +492,29 @@ impl Parser {
         }
     }
 
+    fn parse_call_args(&mut self) -> Result<Vec<Expr>, String> {
+        self.advance();
+        let mut args = Vec::new();
+        if self.curr != Token::RParen {
+            let saved = self.auto_match_regex;
+            self.auto_match_regex = false;
+            args.push(self.parse_expr()?);
+            while self.curr == Token::Comma {
+                self.advance();
+                args.push(self.parse_expr()?);
+            }
+            self.auto_match_regex = saved;
+        }
+        self.expect(&Token::RParen)?;
+        Ok(args)
+    }
+
     fn parse_primary(&mut self) -> Result<Expr, String> {
+        let expr = self.parse_primary_atom()?;
+        self.parse_bracket_suffix(expr)
+    }
+
+    fn parse_primary_atom(&mut self) -> Result<Expr, String> {
         match &self.curr.clone() {
             Token::Dollar => {
                 self.advance();
@@ -525,7 +547,11 @@ impl Parser {
             Token::Ident(s) => {
                 let name = s.clone();
                 self.advance();
-                Ok(Expr::Ident(name))
+                if self.curr == Token::LParen {
+                    Ok(Expr::Call(name, self.parse_call_args()?))
+                } else {
+                    Ok(Expr::Ident(name))
+                }
             }
             Token::LParen => {
                 self.advance();
@@ -540,5 +566,19 @@ impl Parser {
             }
             _ => Err(self.err_unexpected()),
         }
+    }
+
+    fn parse_bracket_suffix(&mut self, mut expr: Expr) -> Result<Expr, String> {
+        if self.curr == Token::LBracket {
+            let name = match expr {
+                Expr::Ident(n) => n,
+                _ => return Err("array access requires a variable name".to_string()),
+            };
+            self.advance();
+            let index = self.parse_expr()?;
+            self.expect(&Token::RBracket)?;
+            expr = Expr::ArrayAccess(name, Box::new(index));
+        }
+        Ok(expr)
     }
 }

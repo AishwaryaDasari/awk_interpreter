@@ -12,9 +12,9 @@ Build an awk interpreter. Start with basic commands and incrementally add featur
 6. **Field separator** — `FS` / `-F` flag
 7. **`if/else` statements** — conditionals with comparisons, nested if/else, chained else-if
 8. **Loops** — `for`, `while`, `do-while`, `break`, `continue`, `next`, `exit`
+9. **Built-in string functions** — `length`, `substr`, `toupper`, `tolower`, `index`, `split`, `gsub`, `sub`, `match`, `sprintf`
 
 ## Planned (in order)
 
-9. Built-in string functions (`length`, `substr`, `gsub`, `split`, etc.)
 10. Arrays (associative) and `for-in`
 11. `printf`

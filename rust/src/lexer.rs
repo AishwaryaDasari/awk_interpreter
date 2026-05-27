@@ -19,6 +19,8 @@ pub enum Token {
     RBrace,
     LParen,
     RParen,
+    LBracket,
+    RBracket,
     Dollar,
     Comma,
     Semicolon,
@@ -102,6 +104,14 @@ impl Lexer {
             ')' => {
                 self.pos += 1;
                 Token::RParen
+            }
+            '[' => {
+                self.pos += 1;
+                Token::LBracket
+            }
+            ']' => {
+                self.pos += 1;
+                Token::RBracket
             }
             '$' => {
                 self.pos += 1;
@@ -272,6 +282,7 @@ impl Lexer {
             | Token::String(_)
             | Token::Ident(_)
             | Token::RParen
+            | Token::RBracket
             | Token::Regex(_)
             | Token::Incr
             | Token::Decr => self.prev_was_operand = true,

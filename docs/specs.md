@@ -275,12 +275,18 @@ END PROCEDURE
 | # | Feature | Rust | Go | Crystal |
 |---|---------|------|----|---------|
 | 1 | print | ✅ Done | ✅ Done | ✅ Done |
-| 2 | Fields | ✅ Done | ✅ Done | ✅ Done |
-| 3 | BEGIN / END + regex patterns | ✅ Done | 🔲 Planned | ✅ Done |
-| 4 | Variables and arithmetic | ✅ Done | 🔲 Planned | ✅ Done |
-| 5 | Field separator | ✅ Done | ✅ Done | ✅ Done |
+| 2 | Fields (`$0`–`$NF`, `NF`, `NR`, `FNR`, `FILENAME`) | ✅ Done | ✅ Done (`NR`, `NF` only) | ✅ Done |
+| 3 | BEGIN / END + regex patterns + range patterns | ✅ Done | ✅ Done (BEGIN/END/regex; no range) | ✅ Done |
+| 4 | Variables and arithmetic | ✅ Done | ✅ Done | ✅ Done |
+| 5 | Field separator (`-F`, `FS`, `OFS`, `ORS`) | ✅ Done | 🔲 Planned (`-F`/`FS` not wired) | ✅ Done |
 | 6 | if / else | ✅ Done | 🔲 Planned | ✅ Done |
-| 7 | Loops | ✅ Done | 🔲 Planned | ✅ Done |
-| 8 | Built-in string functions | 🔲 Planned | 🔲 Planned | ✅ Done |
-| 9 | Arrays | 🔲 Planned | 🔲 Planned | ✅ Done |
-| 10 | printf | 🔲 Planned | 🔲 Planned | ✅ Done |
+| 7 | Loops (`for`, `while`, `do-while`, `break`, `continue`, `next`, `exit`) | ✅ Done | 🔲 Planned | ✅ Done |
+| 8 | Built-in string functions (`length`, `substr`, `split`, `gsub`, `sub`, `match`, `tolower`, `toupper`, `sprintf`, `index`, `gensub`) | ✅ Done | 🔲 Planned | ✅ Done |
+| 9 | Arrays (associative, `for-in`, `delete`) | ✅ Done | 🔲 Planned | ✅ Done |
+| 10 | printf | ✅ Done (via `sprintf`; no `printf` stmt) | 🔲 Planned | ✅ Done |
+| 11 | Math functions (`sin`, `cos`, `sqrt`, `exp`, `log`, `int`, `rand`, `srand`) | 🔲 Planned | 🔲 Planned | ✅ Done |
+| 12 | Ternary operator (`? :`) | ✅ Done | 🔲 Planned | ✅ Done |
+| 13 | CLI flags (`-F`, `-f`, `-v`) | ✅ Done | 🔲 Planned (only inline program) | 🔲 Planned |
+| 14 | BEGINFILE / ENDFILE | ✅ Done | 🔲 Planned | ✅ Done |
+| 15 | Output redirection (`>`, `>>`, `\|`) | 🔲 Planned | 🔲 Planned | 🔲 Planned |
+| 16 | User-defined functions | 🔲 Planned | 🔲 Planned | 🔲 Planned |
