@@ -26,6 +26,32 @@ const (
 	// Built-in variables
 	NR
 	NF
+	// Arithmetic operators
+	PLUS    // +
+	MINUS   // -
+	STAR    // *
+	SLASH   // /
+	PERCENT // %
+	// Assignment operators
+	ASSIGN         // =
+	PLUS_ASSIGN    // +=
+	MINUS_ASSIGN   // -=
+	STAR_ASSIGN    // *=
+	SLASH_ASSIGN   // /=
+	PERCENT_ASSIGN // %=
+	INCR           // ++
+	DECR           // --
+	// Comparison operators
+	EQ  // ==
+	NEQ // !=
+	LT  // <
+	LE  // <=
+	GT  // >
+	GE  // >=
+	// Logical operators
+	AND // &&
+	OR  // ||
+	NOT // !
 	// Literals
 	STRING
 	NUMBER
@@ -62,8 +88,15 @@ func (l *Lexer) Tokenize() []Token {
 	return tokens
 }
 
+func (l *Lexer) peek() rune {
+	if l.pos+1 < len(l.input) {
+		return l.input[l.pos+1]
+	}
+	return 0
+}
+
 func (l *Lexer) nextToken() Token {
-	l.skipSpaces() // skip spaces/tabs but NOT newlines
+	l.skipSpaces()
 
 	if l.pos >= len(l.input) {
 		return Token{Type: EOF}
@@ -96,6 +129,84 @@ func (l *Lexer) nextToken() Token {
 	case ';':
 		l.pos++
 		return Token{Type: SEMICOLON, Value: ";"}
+	case '+':
+		l.pos++
+		if l.pos < len(l.input) && l.input[l.pos] == '+' {
+			l.pos++
+			return Token{Type: INCR, Value: "++"}
+		}
+		if l.pos < len(l.input) && l.input[l.pos] == '=' {
+			l.pos++
+			return Token{Type: PLUS_ASSIGN, Value: "+="}
+		}
+		return Token{Type: PLUS, Value: "+"}
+	case '-':
+		l.pos++
+		if l.pos < len(l.input) && l.input[l.pos] == '-' {
+			l.pos++
+			return Token{Type: DECR, Value: "--"}
+		}
+		if l.pos < len(l.input) && l.input[l.pos] == '=' {
+			l.pos++
+			return Token{Type: MINUS_ASSIGN, Value: "-="}
+		}
+		return Token{Type: MINUS, Value: "-"}
+	case '*':
+		l.pos++
+		if l.pos < len(l.input) && l.input[l.pos] == '=' {
+			l.pos++
+			return Token{Type: STAR_ASSIGN, Value: "*="}
+		}
+		return Token{Type: STAR, Value: "*"}
+	case '%':
+		l.pos++
+		if l.pos < len(l.input) && l.input[l.pos] == '=' {
+			l.pos++
+			return Token{Type: PERCENT_ASSIGN, Value: "%="}
+		}
+		return Token{Type: PERCENT, Value: "%"}
+	case '=':
+		l.pos++
+		if l.pos < len(l.input) && l.input[l.pos] == '=' {
+			l.pos++
+			return Token{Type: EQ, Value: "=="}
+		}
+		return Token{Type: ASSIGN, Value: "="}
+	case '!':
+		l.pos++
+		if l.pos < len(l.input) && l.input[l.pos] == '=' {
+			l.pos++
+			return Token{Type: NEQ, Value: "!="}
+		}
+		return Token{Type: NOT, Value: "!"}
+	case '<':
+		l.pos++
+		if l.pos < len(l.input) && l.input[l.pos] == '=' {
+			l.pos++
+			return Token{Type: LE, Value: "<="}
+		}
+		return Token{Type: LT, Value: "<"}
+	case '>':
+		l.pos++
+		if l.pos < len(l.input) && l.input[l.pos] == '=' {
+			l.pos++
+			return Token{Type: GE, Value: ">="}
+		}
+		return Token{Type: GT, Value: ">"}
+	case '&':
+		l.pos++
+		if l.pos < len(l.input) && l.input[l.pos] == '&' {
+			l.pos++
+			return Token{Type: AND, Value: "&&"}
+		}
+		return Token{Type: ILLEGAL, Value: "&"}
+	case '|':
+		l.pos++
+		if l.pos < len(l.input) && l.input[l.pos] == '|' {
+			l.pos++
+			return Token{Type: OR, Value: "||"}
+		}
+		return Token{Type: ILLEGAL, Value: "|"}
 	case '"':
 		return l.readString()
 	case '/':
@@ -107,13 +218,11 @@ func (l *Lexer) nextToken() Token {
 		if unicode.IsLetter(ch) || ch == '_' {
 			return l.readIdent()
 		}
-		// unknown character — skip it
 		l.pos++
 		return Token{Type: ILLEGAL, Value: string(ch)}
 	}
 }
 
-// skipSpaces skips spaces and tabs only — newlines are significant tokens.
 func (l *Lexer) skipSpaces() {
 	for l.pos < len(l.input) && (l.input[l.pos] == ' ' || l.input[l.pos] == '\t' || l.input[l.pos] == '\r') {
 		l.pos++
@@ -145,7 +254,7 @@ func (l *Lexer) readString() Token {
 		l.pos++
 	}
 	if l.pos < len(l.input) {
-		l.pos++ // skip closing "
+		l.pos++
 	}
 	return Token{Type: STRING, Value: buf.String()}
 }
@@ -183,7 +292,7 @@ func (l *Lexer) readRegex() Token {
 		l.pos++
 	}
 	if l.pos < len(l.input) {
-		l.pos++ // skip closing /
+		l.pos++
 	}
 	return Token{Type: REGEX, Value: buf.String()}
 }
