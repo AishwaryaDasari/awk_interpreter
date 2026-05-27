@@ -96,7 +96,7 @@ def main
         exit(interp.exit_code)
       end
     end
-  else
+  elsif node.needs_input?
     interp.env.set_filename("")
     STDIN.each_line do |line|
       line = line.chomp

@@ -6,6 +6,12 @@ class Program < Node
 
   def initialize(@rules)
   end
+
+  def needs_input? : Bool
+    @rules.any? do |rule|
+      rule.is_a?(PatternRule) || rule.is_a?(End) || rule.is_a?(BeginFile) || rule.is_a?(EndFile)
+    end
+  end
 end
 
 abstract class Rule
