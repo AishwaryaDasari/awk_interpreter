@@ -7,6 +7,6 @@ Start with basic command and add more features.
 5. Field separator (FS / -F)
 6. if/else + comparisons
 7. Loops
-8. Built-in string functions
+8. Built-in string and math functions
 9. Arrays
 10. printf
