@@ -13,6 +13,12 @@ awk '{ print $1, $2 }' file.txt
 awk '{ print $1, $2, $3 }' file.txt
     Print the first three fields.
 
+awk '{ print FNR, NR, $1 }' file.txt
+    Print the file-relative record number, the global record number, and the first field.
+
+awk '{ print $1 "_" $2 }' file.txt
+    String concatenation: print the first field, underscore, and second field as one string.
+
 awk '{ print NF }' file.txt
     Print the number of fields on each line.
 
@@ -21,6 +27,9 @@ awk '{ print NR }' file.txt
 
 awk '{ print $NF }' file.txt
     Print the last field of each line.
+
+awk '{ print $(NF-1) }' file.txt
+    Computed field access: print the second-to-last field.
 
 awk '{ print NR, $1 }' file.txt
     Print the line number followed by the first field.
@@ -41,6 +50,14 @@ awk 'BEGIN { print "Start" } { print } END { print "Done" }' file.txt
 
 awk 'BEGINFILE { print "Reading", FILENAME } { print } ENDFILE { print "Finished" }' file.txt
     Run actions at the start and end of each input file.
+
+awk '{ print FILENAME, NR, $0 }' file.txt
+    Print the current filename, record number, and the full line.
+
+# --- Reading from stdin ---
+
+awk '{ print $1 }'
+    Read input from standard input when no file is given.
 
 # --- Regex patterns ---
 
@@ -89,6 +106,9 @@ awk '$1 > 10 && $2 < 20 { print }' file.txt
 
 awk '$1 == "A" || $1 == "B" { print }' file.txt
     Print lines where either condition is true (OR).
+
+awk '{ if (!($1 == "")) print $1 }' file.txt
+    Unary NOT: print the first field if it is not empty.
 
 # --- Ternary operator ---
 
@@ -208,7 +228,8 @@ awk -v name=John '{ print name }' file.txt
     Set variable `name` to "John" before execution. Accessible in all blocks.
 
 awk -v OFS=',' '{ print $1, $2 }' file.txt
-    Set built-in variable OFS (Output Field Separator) via -v.
+    Set the output field separator via -v. Note: OFS is stored but
+    print currently uses a hardcoded space separator.
 
 awk -v count=0 -v prefix=">>" '{ print prefix, $0 }' file.txt
     Multiple -v flags can be used.
@@ -290,10 +311,12 @@ awk '{
     For loop to sum all fields on each line.
 
 awk '{
-    for (i = NF; i >= 1; i--) printf "%s ", $i
-    print ""
+    for (i = NF; i >= 1; i--) {
+        line = line " " $i
+    }
+    print line
 }' file.txt
-    For loop printing fields in reverse order.
+    For loop printing fields in reverse order using concatenation.
 
 # --- do-while loops ---
 
@@ -371,9 +394,8 @@ awk 'BEGIN { exit 1 } END { print "END" }'
 awk 'BEGIN {
     for (i = 1; i <= 3; i++) {
         for (j = 1; j <= 3; j++) {
-            printf "%d-%d ", i, j
+            print i, j
         }
-        print ""
     }
 }'
     Nested for loops: prints a 3x3 grid of pairs.
