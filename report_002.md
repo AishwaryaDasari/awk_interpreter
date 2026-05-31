@@ -30,7 +30,7 @@ The core design mirrors the classic AWK execution model: BEGIN blocks run first,
 ## Where They Diverge
 
 | | Rust | Go | Crystal |
-|---|---|---|---|---|
+|---|---|---|---|
 | **Completeness** | Mid-range — `do-while`, `gensub`, `#` comments | Minimal — 5 keywords, no control flow, no built-ins | Most complete — 18 built-ins, `printf`, `delete`, `^` |
 | **Value type** | Algebraic enum `Value { Str, Num }` | Struct with `IsNum` bool flag | Union type `String \| Float64` |
 | **AST** | Enums everywhere, exhaustive `match` | Interface/struct, type-switch dispatch | Class hierarchy, `case/when` dispatch |
@@ -49,48 +49,57 @@ All program state lives in a single AST (shown here in Rust syntax):
 
 A program is a list of rules, where each rule is one of:
 
-Rule::Begin(Vec<Stmt>)          // BEGIN { ... }
-Rule::End(Vec<Stmt>)            // END { ... }
-Rule::BeginFile(Vec<Stmt>)      // BEGINFILE { ... }
-Rule::EndFile(Vec<Stmt>)        // ENDFILE { ... }
+```rust
+Rule::Begin(Vec<Stmt>)             // BEGIN { ... }
+Rule::End(Vec<Stmt>)               // END { ... }
+Rule::BeginFile(Vec<Stmt>)         // BEGINFILE { ... }
+Rule::EndFile(Vec<Stmt>)           // ENDFILE { ... }
 Rule::Pattern(Pattern, Vec<Stmt>)  // pattern { ... }
+```
 
 Patterns are either a bare expression or a range:
 
-Pattern::Expr(Expr)             // matches when truthy
-Pattern::Range(Expr, Expr)      // matches from expr1 to expr2
+```rust
+Pattern::Expr(Expr)           // matches when truthy
+Pattern::Range(Expr, Expr)    // matches from expr1 to expr2
+```
 
-Each statement block is Vec<Stmt>, where a statement is:
+Each statement block is `Vec<Stmt>`, where a statement is:
 
-Stmt::Print(Vec<Expr>)                                    // print [expr ...]
-Stmt::Expr(Expr)                                          // expression statement
-Stmt::If(Expr, Vec<Stmt>, Option<Vec<Stmt>>)              // if (cond) { ... } [else { ... }]
-Stmt::While(Expr, Vec<Stmt>)                              // while (cond) { ... }
-Stmt::DoWhile(Vec<Stmt>, Expr)                            // do { ... } while (cond)
-Stmt::For(Option<Expr>, Option<Expr>, Option<Expr>, Vec<Stmt>)  // for (init; cond; incr) { ... }
-Stmt::ForIn(String, Expr, Vec<Stmt>)                      // for (var in array) { ... }
+```rust
+Stmt::Print(Vec<Expr>)                                         // print [expr ...]
+Stmt::Expr(Expr)                                               // expression statement
+Stmt::If(Expr, Vec<Stmt>, Option<Vec<Stmt>>)                   // if (cond) { ... } [else { ... }]
+Stmt::While(Expr, Vec<Stmt>)                                   // while (cond) { ... }
+Stmt::DoWhile(Vec<Stmt>, Expr)                                 // do { ... } while (cond)
+Stmt::For(Option<Expr>, Option<Expr>, Option<Expr>, Vec<Stmt>) // for (init; cond; incr) { ... }
+Stmt::ForIn(String, Expr, Vec<Stmt>)                           // for (var in array) { ... }
 Stmt::Break / Continue / Next
-Stmt::Exit(Option<Expr>)                                  // exit [code]
+Stmt::Exit(Option<Expr>)                                       // exit [code]
+```
 
 Expressions are the recursive core:
 
-Expr::Field(usize)                          // $N
-Expr::FieldExpr(Box<Expr>)                  // $(expr)
-Expr::Ident(String)                         // variable name
-Expr::Str(String)                           // string literal
-Expr::Num(f64)                              // numeric literal
-Expr::BinOp(Box<Expr>, BinOpKind, Box<Expr>)   // lhs op rhs
-Expr::UnaryOp(UnaryOpKind, Box<Expr>)          // -expr / !expr
-Expr::Ternary(Box<Expr>, Box<Expr>, Box<Expr>) // cond ? then : else
-Expr::Assign(String, Box<Expr>)                // var = expr
-Expr::AssignOp(BinOpKind, String, Box<Expr>)   // var op= expr
-Expr::Incr(String, bool)                       // var++ / ++var
-Expr::Decr(String, bool)                       // var-- / --var
-Expr::Call(String, Vec<Expr>)                  // func(args...)
-Expr::ArrayAccess(String, Box<Expr>)           // arr[idx]
+```rust
+Expr::Field(usize)                              // $N
+Expr::FieldExpr(Box<Expr>)                      // $(expr)
+Expr::Ident(String)                             // variable name
+Expr::Str(String)                               // string literal
+Expr::Num(f64)                                  // numeric literal
+Expr::BinOp(Box<Expr>, BinOpKind, Box<Expr>)    // lhs op rhs
+Expr::UnaryOp(UnaryOpKind, Box<Expr>)           // -expr / !expr
+Expr::Ternary(Box<Expr>, Box<Expr>, Box<Expr>)  // cond ? then : else
+Expr::Assign(String, Box<Expr>)                 // var = expr
+Expr::AssignOp(BinOpKind, String, Box<Expr>)    // var op= expr
+Expr::Incr(String, bool)                        // var++ / ++var
+Expr::Decr(String, bool)                        // var-- / --var
+Expr::Call(String, Vec<Expr>)                   // func(args...)
+Expr::ArrayAccess(String, Box<Expr>)            // arr[idx]
+```
 
-Binary operators (BinOpKind): Add, Sub, Mul, Div, Mod, Eq, Ne, Lt, Gt, Le, Ge, And, Or, Match, NotMatch, Concat.
-Unary operators (UnaryOpKind): Neg, Not.
+Binary operators (`BinOpKind`): `Add`, `Sub`, `Mul`, `Div`, `Mod`, `Eq`, `Ne`, `Lt`, `Gt`, `Le`, `Ge`, `And`, `Or`, `Match`, `NotMatch`, `Concat`
+
+Unary operators (`UnaryOpKind`): `Neg`, `Not`
 
 ## The Four-Phase Pipeline
 
