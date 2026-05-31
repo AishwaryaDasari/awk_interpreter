@@ -46,18 +46,8 @@ All three produce identical output for the same AWK program.
 
 **Go has no enums.** In Rust, the entire AST is built from recursive enums — every node is a variant. In Go, there's no native enum type, so we used constants (`iota`) and interface types to represent AST nodes. It works, but it's more verbose and loses the exhaustiveness checking that Rust's `match` gives you for free.
 
-**Comparing all three:**
-
-| | Rust | Crystal | Go |
-|---|---|---|---|
-| AST representation | Recursive enums | Recursive enums (like Rust) | Interfaces + constants |
-| Pattern matching | `match` — exhaustive | `case` — exhaustive | `switch` — not exhaustive |
-| Error handling | `Result<T, E>` | Exceptions | Multiple return values |
-| Arrays/maps | `HashMap` | `Hash` | `map[string]string` |
-| Type system | Static, strict | Static, expressive | Static, simple |
-| Feel | Verbose but safe | Closest to writing AWK itself | Simple and explicit |
-
-Rust gave the most safety guarantees. Go was the simplest to read. Crystal was the most expressive — its syntax felt closest to the AWK language we were implementing.
+**Comparing all three on enums:**
+Rust has the most powerful enums — recursive, data-carrying, and matched exhaustively with `match`. Crystal has similar enums and exhaustive `case`. Go has no enums at all — we used `iota` constants and interfaces instead, which works but loses the exhaustiveness check that Rust and Crystal give you for free.
 
 ---
 
