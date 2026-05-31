@@ -1,24 +1,47 @@
 # AWK Interpreter — User Manual
 
-This is the reference manual for every command and feature supported by this AWK interpreter.
-Use this to look up syntax, behavior, and examples for anything you want to run.
+A working AWK interpreter built from scratch in **Rust**, **Go**, and **Crystal**.
+All three versions run the same programs and produce identical output.
+
+> All examples use `awk_rust`. Replace with `awk_go` or `awk_crystal` for identical results.
 
 ---
 
-## How to Run
+## Table of Contents
+
+1. [Running the Interpreter](#running-the-interpreter)
+2. [Program Structure](#program-structure)
+3. [Special Patterns](#special-patterns)
+4. [Fields and Records](#fields-and-records)
+5. [Built-in Variables](#built-in-variables)
+6. [Operators](#operators)
+7. [Statements](#statements)
+8. [Control Flow](#control-flow)
+9. [Arrays](#arrays)
+10. [Built-in Functions](#built-in-functions)
+11. [User-Defined Functions](#user-defined-functions)
+12. [CLI Flags](#cli-flags)
+13. [Worked Examples](#worked-examples)
+
+---
+
+## Running the Interpreter
+
+All three versions share the same command-line interface:
 
 ```
-awk_interpreter 'program' [file...]
+awk_rust    'program' [file...]
+awk_go      'program' [file...]
+awk_crystal 'program' [file...]
 ```
 
-- `program` — the AWK program, in single quotes
-- `file` — one or more input files (reads from stdin if none given)
+- `program` — AWK program in single quotes
+- `file` — one or more input files; reads from stdin if none given
 
-**Examples:**
-```
-awk_interpreter '{print}' data.txt
-awk_interpreter '{print $1, $2}' data.txt
-echo "hello world" | awk_interpreter '{print $2}'
+```bash
+awk_rust '{print}' data.txt
+awk_rust '{print $1, $2}' data.txt
+echo "hello world" | awk_rust '{print $2}'
 ```
 
 ---
@@ -27,23 +50,21 @@ echo "hello world" | awk_interpreter '{print $2}'
 
 An AWK program is a sequence of `pattern { action }` rules.
 
-```
+```awk
 pattern { action }
 pattern { action }
 ...
 ```
 
-- **pattern** — a condition that decides whether the action runs for a given line
-- **action** — one or more statements to execute when the pattern matches
-- If pattern is omitted, the action runs on every line
-- If action is omitted, the matching line is printed
+- If **pattern** is omitted, the action runs on every line.
+- If **action** is omitted, the matching line is printed.
+- Multiple rules are evaluated in order for each input line.
 
-```
+```awk
 { print }              # no pattern — runs on every line
-/Sam/ { print }        # regex pattern — runs only on lines matching "Sam"
-NR > 1 { print }       # expression pattern — runs when NR is greater than 1
-BEGIN { print "start" }
-END   { print "done" }
+/Sam/ { print }        # regex pattern — lines containing "Sam"
+NR > 1 { print }       # expression pattern — when NR > 1
+$2 > 70 { print $1 }   # field comparison pattern
 ```
 
 ---
@@ -52,36 +73,55 @@ END   { print "done" }
 
 ### BEGIN
 Runs once before any input is read.
-```
-BEGIN { print "Name  Marks" }
+```awk
+BEGIN { print "Name  Score" }
 ```
 
 ### END
 Runs once after all input has been processed.
-```
+```awk
 END { print "Total lines:", NR }
+```
+
+### BEGINFILE / ENDFILE
+Runs once at the start and end of each input file.
+```awk
+BEGINFILE { print "--- File:", FILENAME }
+ENDFILE   { print "--- Done" }
+```
+
+### Range Patterns
+Matches all lines from the first pattern to the second, inclusive.
+```awk
+/start/, /end/ { print }
+NR == 3, NR == 7 { print }
 ```
 
 ---
 
-## Fields
+## Fields and Records
 
-Each input line is split into fields by the field separator (default: whitespace).
+Input is split into **records** (default: lines) and each record into **fields** (default: whitespace-separated).
 
 | Variable | Meaning |
 |----------|---------|
-| `$0` | The entire current line |
+| `$0` | Entire current record |
 | `$1` | First field |
 | `$2` | Second field |
 | `$n` | nth field |
-| `$NF` | Last field (NF = number of fields) |
+| `$NF` | Last field |
 
+```awk
+# Input line: "Alice 92"
+{ print $1 }     # → Alice
+{ print $2 }     # → 92
+{ print $NF }    # → 92
+{ print $0 }     # → Alice 92
 ```
-# Input line: "Sam 67"
-{ print $1 }     # → Sam
-{ print $2 }     # → 67
-{ print $0 }     # → Sam 67
-{ print $NF }    # → 67  (last field)
+
+Dynamic field access:
+```awk
+{ i = 2; print $i }    # prints second field
 ```
 
 ---
@@ -90,60 +130,28 @@ Each input line is split into fields by the field separator (default: whitespace
 
 | Variable | Default | Meaning |
 |----------|---------|---------|
-| `FS` | `" "` | Field separator (input) |
+| `FS` | `" "` | Input field separator |
 | `OFS` | `" "` | Output field separator |
-| `RS` | `"\n"` | Record separator |
+| `RS` | `"\n"` | Input record separator |
 | `ORS` | `"\n"` | Output record separator |
 | `NF` | — | Number of fields in current record |
-| `NR` | — | Current record (line) number |
+| `NR` | — | Current record number (across all files) |
 | `FNR` | — | Record number within current file |
 | `FILENAME` | — | Name of current input file |
+| `RSTART` | — | Start position set by `match()` |
+| `RLENGTH` | — | Length set by `match()` |
 
-```
+```awk
 { print NR, $1 }          # line number + first field
-{ print NF }              # number of fields on this line
-BEGIN { FS = ":" }        # set colon as field separator
+BEGIN { FS = "," }        # comma-separated input
+BEGIN { OFS = "\t" }      # tab-separated output
 ```
 
 ---
 
-## print
+## Operators
 
-Prints output. Fields are separated by OFS (default space). Each print adds ORS (default newline) at the end.
-
-```
-{ print }                  # print entire line
-{ print $1 }               # print first field
-{ print $1, $2 }           # print two fields separated by space
-{ print $1 " " $2 }        # string concatenation
-{ print "Name:", $1 }      # literal string + field
-```
-
----
-
-## printf
-
-Formatted output — like C's printf. Does NOT add a newline automatically.
-
-```
-{ printf "%s scored %d\n", $1, $2 }
-{ printf "%-10s %5d\n", $1, $2 }
-```
-
-**Format specifiers:**
-
-| Specifier | Meaning |
-|-----------|---------|
-| `%s` | String |
-| `%d` | Integer |
-| `%f` | Float |
-| `%e` | Scientific notation |
-| `%g` | Shorter of %f or %e |
-| `%%` | Literal `%` |
-
----
-
-## Arithmetic Operators
+### Arithmetic
 
 | Operator | Meaning |
 |----------|---------|
@@ -154,16 +162,7 @@ Formatted output — like C's printf. Does NOT add a newline automatically.
 | `%` | Modulo |
 | `^` | Exponentiation |
 
-```
-{ print $2 + 10 }
-{ print $2 * 2 }
-{ total += $2 }
-END { print "Total:", total }
-```
-
----
-
-## Comparison Operators
+### Comparison
 
 | Operator | Meaning |
 |----------|---------|
@@ -174,33 +173,27 @@ END { print "Total:", total }
 | `>` | Greater than |
 | `>=` | Greater than or equal |
 
-```
-$2 > 70 { print $1, "passed" }
-$1 == "Sam" { print "Found Sam" }
-```
+### Logical
 
----
+| Operator | Meaning |
+|----------|---------|
+| `&&` | Logical AND |
+| `\|\|` | Logical OR |
+| `!` | Logical NOT |
 
-## String Operators
+### String / Regex
 
 | Operator | Meaning |
 |----------|---------|
 | `~` | Matches regex |
 | `!~` | Does not match regex |
 
-```
-$1 ~ /^S/ { print $1 }       # names starting with S
-$1 !~ /am/ { print $1 }      # names not containing "am"
-```
-
-String concatenation is done by placing values next to each other:
-```
-{ print $1 " got " $2 " marks" }
+String concatenation — place values next to each other:
+```awk
+{ print $1 " scored " $2 " marks" }
 ```
 
----
-
-## Assignment Operators
+### Assignment
 
 | Operator | Meaning |
 |----------|---------|
@@ -213,29 +206,61 @@ String concatenation is done by placing values next to each other:
 | `++` | Increment |
 | `--` | Decrement |
 
-```
-{ count++ }
-END { print count }
+### Ternary
 
-{ total += $2 }
-END { print total / NR }
+```awk
+{ print ($2 >= 50) ? "pass" : "fail" }
 ```
 
 ---
 
-## Regex Patterns
+## Statements
 
+### print
+
+Prints output separated by OFS (default space), followed by ORS (default newline).
+
+```awk
+{ print }                  # print entire line
+{ print $1 }               # print first field
+{ print $1, $2 }           # two fields separated by OFS
+{ print $1 " " $2 }        # string concatenation
+{ print "Name:", $1 }      # literal + field
 ```
-/pattern/ { action }        # matches lines containing pattern
-/^Sam/    { print }         # lines starting with Sam
-/[0-9]+/  { print $2 }      # lines containing a number
+
+### printf
+
+Formatted output — like C's `printf`. Does **not** add a newline automatically.
+
+```awk
+{ printf "%s scored %d\n", $1, $2 }
+{ printf "%-10s %5d\n", $1, $2 }
+```
+
+| Specifier | Meaning |
+|-----------|---------|
+| `%s` | String |
+| `%d` | Integer |
+| `%f` | Float |
+| `%e` | Scientific notation |
+| `%g` | Shorter of `%f` or `%e` |
+| `%%` | Literal `%` |
+
+### Output Redirection
+
+```awk
+{ print > "output.txt" }     # write to file (overwrite)
+{ print >> "output.txt" }    # append to file
+{ print | "sort" }           # pipe to command
 ```
 
 ---
 
-## if / else
+## Control Flow
 
-```
+### if / else
+
+```awk
 {
     if ($2 >= 75) {
         print $1, "distinction"
@@ -247,12 +272,9 @@ END { print total / NR }
 }
 ```
 
----
-
-## Loops
-
 ### while
-```
+
+```awk
 {
     i = 1
     while (i <= NF) {
@@ -263,7 +285,8 @@ END { print total / NR }
 ```
 
 ### for
-```
+
+```awk
 {
     for (i = 1; i <= NF; i++) {
         print $i
@@ -272,10 +295,42 @@ END { print total / NR }
 ```
 
 ### for-in (arrays)
-```
+
+```awk
 END {
     for (name in scores) {
         print name, scores[name]
+    }
+}
+```
+
+### next
+
+Skip remaining rules for the current record and move to the next.
+
+```awk
+NR == 1 { next }    # skip header line
+{ print }
+```
+
+### exit
+
+Stop processing immediately. The END block still runs.
+
+```awk
+NR == 10 { exit }
+END { print "stopped at line", NR }
+```
+
+### break / continue
+
+Used inside loops.
+
+```awk
+{
+    for (i = 1; i <= NF; i++) {
+        if ($i == "") continue
+        print $i
     }
 }
 ```
@@ -284,9 +339,9 @@ END {
 
 ## Arrays
 
-AWK arrays are associative (key-value). Keys can be strings or numbers.
+AWK arrays are associative (key → value). Keys can be strings or numbers.
 
-```
+```awk
 { scores[$1] = $2 }
 END {
     for (name in scores) {
@@ -295,7 +350,8 @@ END {
 }
 ```
 
-```
+Counting occurrences:
+```awk
 { count[$1]++ }
 END {
     for (k in count) print k, count[k]
@@ -303,38 +359,44 @@ END {
 ```
 
 Delete an element:
-```
+```awk
 delete arr[key]
 ```
 
+Check if a key exists:
+```awk
+if (key in arr) { print "found" }
+```
+
 ---
 
-## Built-in String Functions
+## Built-in Functions
+
+### String Functions
 
 | Function | Description |
 |----------|-------------|
-| `length(s)` | Length of string s (or `$0` if no arg) |
-| `substr(s, start)` | Substring from position start |
-| `substr(s, start, len)` | Substring of length len from start |
-| `index(s, t)` | Position of t in s (0 if not found) |
-| `split(s, arr, sep)` | Split s into array arr by sep, returns count |
-| `sub(regex, repl, s)` | Replace first match of regex in s with repl |
-| `gsub(regex, repl, s)` | Replace all matches of regex in s with repl |
-| `match(s, regex)` | Returns position of regex in s (sets RSTART, RLENGTH) |
+| `length(s)` | Length of `s`; length of `$0` if no argument |
+| `substr(s, start)` | Substring from position `start` (1-based) |
+| `substr(s, start, len)` | Substring of length `len` from `start` |
+| `index(s, t)` | Position of `t` in `s`; 0 if not found |
+| `split(s, arr, sep)` | Split `s` into array `arr` by `sep`; returns count |
+| `sub(regex, repl, s)` | Replace first match of `regex` in `s` with `repl` |
+| `gsub(regex, repl, s)` | Replace all matches of `regex` in `s` with `repl` |
+| `match(s, regex)` | Position of `regex` in `s`; sets `RSTART`, `RLENGTH` |
 | `tolower(s)` | Convert to lowercase |
 | `toupper(s)` | Convert to uppercase |
-| `sprintf(fmt, ...)` | Format string like printf, return as string |
+| `sprintf(fmt, ...)` | Format string like `printf`, return as string |
 
-```
+```awk
 { print length($1) }
 { print toupper($1) }
 { print substr($1, 1, 3) }
-{ gsub(/Sam/, "Samuel"); print }
+{ gsub(/o/, "0"); print }
+{ n = split($0, a, ","); print a[1] }
 ```
 
----
-
-## Built-in Math Functions
+### Math Functions
 
 | Function | Description |
 |----------|-------------|
@@ -342,125 +404,182 @@ delete arr[key]
 | `cos(x)` | Cosine |
 | `atan2(y, x)` | Arctangent of y/x |
 | `exp(x)` | e raised to x |
-| `log(x)` | Natural log |
+| `log(x)` | Natural logarithm |
 | `sqrt(x)` | Square root |
 | `int(x)` | Truncate to integer |
-| `rand()` | Random number between 0 and 1 |
-| `srand(x)` | Seed random number generator |
+| `rand()` | Random float in [0, 1) |
+| `srand(x)` | Seed the random number generator |
 
 ---
 
-## Field Separator (-F flag)
+## User-Defined Functions
 
-```
-awk_interpreter -F: '{print $1}' /etc/passwd
-awk_interpreter -F, '{print $2}' data.csv
+Functions are defined at the top level and can be called from any rule.
+
+```awk
+function max(a, b) {
+    return (a > b) ? a : b
+}
+
+function greet(name,    msg) {
+    msg = "Hello, " name
+    return msg
+}
+
+{ print max($1, $2) }
+{ print greet($1) }
 ```
 
-Or set it inside the program:
+- Parameters are local to the function.
+- Extra parameters after a gap of spaces act as local variables.
+- Functions can call other functions and themselves recursively.
+
+---
+
+## CLI Flags
+
+### -F — Field Separator
+
+```bash
+awk_rust -F: '{print $1}' /etc/passwd
+awk_rust -F, '{print $2}' data.csv
+awk_rust -F'\t' '{print $1}' data.tsv
 ```
+
+Can also be set inside the program:
+```awk
 BEGIN { FS = "," }
-{ print $1, $2 }
+```
+
+### -f — Program File
+
+For longer programs, write them to a `.awk` file and use `-f`:
+
+```bash
+awk_rust -f program.awk data.txt
+```
+
+### -v — Pre-set Variable
+
+```bash
+awk_rust -v threshold=70 '$2 > threshold { print $1 }' data.txt
+awk_rust -v OFS=, '{print $1, $2}' data.txt
+```
+
+Multiple `-v` flags are supported:
+```bash
+awk_rust -v a=1 -v b=2 'BEGIN { print a + b }'
 ```
 
 ---
 
-## Program from File (-f flag)
+## Worked Examples
 
-For longer programs, write them to a file and use `-f`:
-
+Assume `data.txt` contains:
 ```
-awk_interpreter -f program.awk data.txt
-```
-
----
-
-## Pre-set Variables (-v flag)
-
-```
-awk_interpreter -v threshold=70 '$2 > threshold { print $1 }' data.txt
+Alice 92
+Bob 45
+Carol 78
+Dave 55
+Eve 88
 ```
 
----
-
-## Multiple Rules
-
+**Print every line:**
+```bash
+awk_rust '{print}' data.txt
 ```
-BEGIN         { print "--- Report ---" }
-NR == 1       { next }              # skip header line
-$2 >= 75      { print $1, "distinction" }
+
+**Print specific fields:**
+```bash
+awk_rust '{print $1}' data.txt
+```
+
+**Print with line numbers:**
+```bash
+awk_rust '{print NR, $0}' data.txt
+```
+
+**Filter by field value:**
+```bash
+awk_rust '$2 > 70 {print $1}' data.txt
+# → Alice  Carol  Eve
+```
+
+**Sum a column:**
+```bash
+awk_rust '{sum += $2} END {print "Total:", sum}' data.txt
+```
+
+**Average a column:**
+```bash
+awk_rust '{sum += $2} END {print "Average:", sum/NR}' data.txt
+```
+
+**Count lines:**
+```bash
+awk_rust 'END {print NR}' data.txt
+```
+
+**Skip header line:**
+```bash
+awk_rust 'NR > 1 {print}' data.txt
+```
+
+**Grade report:**
+```bash
+awk_rust '{
+    if ($2 >= 75) grade = "distinction"
+    else if ($2 >= 50) grade = "pass"
+    else grade = "fail"
+    print $1, grade
+}' data.txt
+```
+
+**CSV input:**
+```bash
+awk_rust -F, '{print $1, $3}' data.csv
+```
+
+**Add header and footer:**
+```bash
+awk_rust 'BEGIN{print "Name Score"} {print} END{print "---"}' data.txt
+```
+
+**Regex filter — names starting with A or E:**
+```bash
+awk_rust '$1 ~ /^[AE]/ {print}' data.txt
+```
+
+**Count occurrences of each value:**
+```bash
+awk_rust '{count[$1]++} END {for (k in count) print k, count[k]}' data.txt
+```
+
+**Formatted output:**
+```bash
+awk_rust '{printf "%-10s %3d\n", $1, $2}' data.txt
+```
+
+**Multiple rules:**
+```bash
+awk_rust '
+BEGIN               { print "--- Report ---" }
+NR == 1             { next }
+$2 >= 75            { print $1, "distinction" }
 $2 >= 50 && $2 < 75 { print $1, "pass" }
-$2 < 50       { print $1, "fail" }
-END           { print "--- Done ---" }
+$2 < 50             { print $1, "fail" }
+END                 { print "--- Done ---" }
+' data.txt
 ```
 
----
-
-## next
-
-Skip the rest of the current rules and move to the next input line.
-
-```
-NR == 1 { next }       # skip header
-{ print }
-```
-
----
-
-## exit
-
-Stop processing immediately.
-
-```
-NR == 10 { exit }
-END { print "stopped at line", NR }
-```
-
----
-
-## Pipe and Redirection (planned)
-
-```
-{ print | "sort" }
-{ print > "output.txt" }
-{ print >> "output.txt" }
-```
-
----
-
-## Quick Reference Card
-
-```
-# Print whole file
-awk_interpreter '{print}' file.txt
-
-# Print specific columns
-awk_interpreter '{print $1, $3}' file.txt
-
-# Print line numbers
-awk_interpreter '{print NR, $0}' file.txt
-
-# Skip header line
-awk_interpreter 'NR > 1 {print}' file.txt
-
-# Filter by pattern
-awk_interpreter '/Sam/ {print}' file.txt
-
-# Filter by field value
-awk_interpreter '$2 > 70 {print $1}' file.txt
-
-# Count lines
-awk_interpreter 'END {print NR}' file.txt
-
-# Sum a column
-awk_interpreter '{sum += $2} END {print sum}' file.txt
-
-# Average a column
-awk_interpreter '{sum += $2} END {print sum/NR}' file.txt
-
-# CSV input
-awk_interpreter -F, '{print $1}' file.csv
-
-# Add header and footer
-awk_interpreter 'BEGIN{print "Name Marks"} {print} END{print "---"}' file.txt
+**User-defined function:**
+```bash
+awk_rust '
+function grade(score) {
+    if (score >= 75) return "distinction"
+    if (score >= 50) return "pass"
+    return "fail"
+}
+{ print $1, grade($2) }
+' data.txt
 ```

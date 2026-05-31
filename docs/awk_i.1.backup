@@ -1,0 +1,2 @@
+#!/bin/bash
+less /home/cse/project/awk_interpreter/AWK_MANUAL.md
