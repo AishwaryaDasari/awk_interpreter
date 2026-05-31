@@ -81,6 +81,37 @@ impl Env {
             .unwrap_or(Value::Str(String::new()))
     }
 
+    pub fn set_array(&mut self, name: &str, index: &str, val: Value) {
+        self.arrays
+            .entry(name.to_string())
+            .or_insert_with(HashMap::new)
+            .insert(index.to_string(), val);
+    }
+
+    pub fn delete_array_entry(&mut self, name: &str, index: &str) {
+        if let Some(arr) = self.arrays.get_mut(name) {
+            arr.remove(index);
+        }
+    }
+
+    pub fn delete_array(&mut self, name: &str) {
+        self.arrays.remove(name);
+    }
+
+    pub fn has_array_key(&self, name: &str, index: &str) -> bool {
+        self.arrays
+            .get(name)
+            .map(|arr| arr.contains_key(index))
+            .unwrap_or(false)
+    }
+
+    pub fn get_array_keys(&self, name: &str) -> Vec<String> {
+        self.arrays
+            .get(name)
+            .map(|arr| arr.keys().cloned().collect())
+            .unwrap_or_default()
+    }
+
     pub fn set_var(&mut self, name: &str, val: Value) {
         if name == "FS" {
             self.fs = val.as_str();

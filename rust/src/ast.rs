@@ -27,6 +27,7 @@ pub enum Stmt {
     DoWhile(Vec<Stmt>, Expr),
     For(Option<Expr>, Option<Expr>, Option<Expr>, Vec<Stmt>),
     ForIn(String, Expr, Vec<Stmt>),
+    Delete(String, Option<Box<Expr>>),
     Break,
     Continue,
     Next,
@@ -75,4 +76,9 @@ pub enum Expr {
     Decr(String, bool),
     Call(String, Vec<Expr>),
     ArrayAccess(String, Box<Expr>),
+    ArrayAssign(String, Box<Expr>, Box<Expr>),
+    ArrayAssignOp(BinOpKind, String, Box<Expr>, Box<Expr>),
+    ArrayIncr(String, Box<Expr>, bool),
+    ArrayDecr(String, Box<Expr>, bool),
+    In(Box<Expr>, String),
 }

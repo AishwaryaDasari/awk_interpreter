@@ -124,7 +124,11 @@ impl Interp {
                 Stmt::While(cond, body) => self.exec_while(cond, body, out),
                 Stmt::DoWhile(body, cond) => self.exec_do_while(body, cond, out),
                 Stmt::For(init, cond, incr, body) => self.exec_for(init, cond, incr, body, out),
-                Stmt::ForIn(_, _, _) => Flow::None,
+                Stmt::ForIn(var, array_expr, body) => self.exec_for_in(var, array_expr, body, out),
+                Stmt::Delete(name, index) => {
+                    self.exec_delete(name, index);
+                    Flow::None
+                }
                 Stmt::Break => Flow::Break,
                 Stmt::Continue => Flow::Continue,
                 Stmt::Next => Flow::Next,
@@ -248,6 +252,43 @@ impl Interp {
         Flow::Exit
     }
 
+    fn exec_for_in(
+        &mut self,
+        var: &str,
+        array_expr: &Expr,
+        body: &[Stmt],
+        out: &mut String,
+    ) -> Flow {
+        let arr_name = match array_expr {
+            Expr::Ident(name) => name.clone(),
+            _ => return Flow::None,
+        };
+        let keys = self.env.get_array_keys(&arr_name);
+        for key in keys {
+            self.env.set_var(var, Value::Str(key));
+            let flow = self.exec_stmts(body, out);
+            match flow {
+                Flow::None | Flow::Continue => {}
+                Flow::Break => break,
+                Flow::Next => return Flow::Next,
+                Flow::Exit => return Flow::Exit,
+            }
+        }
+        Flow::None
+    }
+
+    fn exec_delete(&mut self, name: &str, index: &Option<Box<Expr>>) {
+        match index {
+            Some(idx_expr) => {
+                let idx = self.eval_expr(idx_expr).as_str();
+                self.env.delete_array_entry(name, &idx);
+            }
+            None => {
+                self.env.delete_array(name);
+            }
+        }
+    }
+
     fn matches_pattern(&mut self, pattern: &Pattern) -> bool {
         match pattern {
             Pattern::Expr(expr) => {
@@ -345,6 +386,57 @@ impl Interp {
             Expr::ArrayAccess(name, index) => {
                 let idx = self.eval_expr(index).as_str();
                 self.env.get_array(name, &idx)
+            }
+            Expr::ArrayAssign(name, index, value) => {
+                let idx = self.eval_expr(index).as_str();
+                let val = self.eval_expr(value);
+                self.env.set_array(name, &idx, val.clone());
+                val
+            }
+            Expr::ArrayAssignOp(kind, name, index, value) => {
+                let idx = self.eval_expr(index).as_str();
+                let lhs = self.env.get_array(name, &idx);
+                let rhs = self.eval_expr(value);
+                let result = match kind {
+                    BinOpKind::Add => Value::Num(lhs.as_f64() + rhs.as_f64()),
+                    BinOpKind::Sub => Value::Num(lhs.as_f64() - rhs.as_f64()),
+                    BinOpKind::Mul => Value::Num(lhs.as_f64() * rhs.as_f64()),
+                    BinOpKind::Div => Value::Num(lhs.as_f64() / rhs.as_f64()),
+                    BinOpKind::Mod => Value::Num(lhs.as_f64() % rhs.as_f64()),
+                    _ => unreachable!(),
+                };
+                self.env.set_array(name, &idx, result.clone());
+                result
+            }
+            Expr::ArrayIncr(name, index, post) => {
+                let idx = self.eval_expr(index).as_str();
+                let val = self.env.get_array(name, &idx);
+                let new_val = Value::Num(val.as_f64() + 1.0);
+                self.env.set_array(name, &idx, new_val.clone());
+                if *post {
+                    val
+                } else {
+                    new_val
+                }
+            }
+            Expr::ArrayDecr(name, index, post) => {
+                let idx = self.eval_expr(index).as_str();
+                let val = self.env.get_array(name, &idx);
+                let new_val = Value::Num(val.as_f64() - 1.0);
+                self.env.set_array(name, &idx, new_val.clone());
+                if *post {
+                    val
+                } else {
+                    new_val
+                }
+            }
+            Expr::In(key, arr_name) => {
+                let k = self.eval_expr(key).as_str();
+                Value::Num(if self.env.has_array_key(arr_name, &k) {
+                    1.0
+                } else {
+                    0.0
+                })
             }
         }
     }

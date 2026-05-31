@@ -5,6 +5,7 @@ pub struct Parser {
     lexer: Lexer,
     curr: Token,
     auto_match_regex: bool,
+    allow_in_expr: bool,
 }
 
 impl Parser {
@@ -14,6 +15,7 @@ impl Parser {
             lexer,
             curr,
             auto_match_regex: true,
+            allow_in_expr: true,
         }
     }
 
@@ -141,6 +143,7 @@ impl Parser {
                 Ok(Stmt::Next)
             }
             Token::Exit => self.parse_exit_stmt(),
+            Token::Delete => self.parse_delete_stmt(),
             _ => {
                 if self.can_start_expr() {
                     Ok(Stmt::Expr(self.parse_expr()?))
@@ -211,6 +214,8 @@ impl Parser {
         self.advance();
         self.expect(&Token::LParen)?;
 
+        let saved = self.allow_in_expr;
+        self.allow_in_expr = false;
         let init = if self.curr != Token::Semicolon {
             let expr = self.parse_expr()?;
             if self.curr == Token::In {
@@ -218,6 +223,7 @@ impl Parser {
                 let array = self.parse_expr()?;
                 self.expect(&Token::RParen)?;
                 let body = self.parse_branch()?;
+                self.allow_in_expr = saved;
                 match expr {
                     Expr::Ident(var) => return Ok(Stmt::ForIn(var, array, body)),
                     _ => return Err("for-in requires a variable name".to_string()),
@@ -227,6 +233,7 @@ impl Parser {
         } else {
             None
         };
+        self.allow_in_expr = saved;
         self.expect(&Token::Semicolon)?;
         let cond = if self.curr != Token::Semicolon && self.curr != Token::RParen {
             Some(self.parse_expr()?)
@@ -255,6 +262,25 @@ impl Parser {
     }
 
     // ----- print statement -----
+
+    fn parse_delete_stmt(&mut self) -> Result<Stmt, String> {
+        self.advance();
+        match &self.curr {
+            Token::Ident(name) => {
+                let arr_name = name.clone();
+                self.advance();
+                if self.curr == Token::LBracket {
+                    self.advance();
+                    let index = self.parse_expr()?;
+                    self.expect(&Token::RBracket)?;
+                    Ok(Stmt::Delete(arr_name, Some(Box::new(index))))
+                } else {
+                    Ok(Stmt::Delete(arr_name, None))
+                }
+            }
+            _ => Err("expected array name after delete".to_string()),
+        }
+    }
 
     fn parse_print(&mut self) -> Result<Stmt, String> {
         self.advance();
@@ -291,6 +317,11 @@ impl Parser {
                 self.advance();
                 match expr {
                     Expr::Ident(name) => Ok(Expr::Assign(name, Box::new(self.parse_assignment()?))),
+                    Expr::ArrayAccess(name, index) => Ok(Expr::ArrayAssign(
+                        name,
+                        index,
+                        Box::new(self.parse_assignment()?),
+                    )),
                     _ => Err("invalid assignment target".to_string()),
                 }
             }
@@ -312,6 +343,12 @@ impl Parser {
                     Expr::Ident(name) => Ok(Expr::AssignOp(
                         kind,
                         name,
+                        Box::new(self.parse_assignment()?),
+                    )),
+                    Expr::ArrayAccess(name, index) => Ok(Expr::ArrayAssignOp(
+                        kind,
+                        name,
+                        index,
                         Box::new(self.parse_assignment()?),
                     )),
                     _ => Err("invalid assignment target".to_string()),
@@ -348,13 +385,30 @@ impl Parser {
     }
 
     fn parse_and(&mut self) -> Result<Expr, String> {
-        let mut expr = self.parse_compare()?;
+        let mut expr = self.parse_membership()?;
         while self.curr == Token::And {
             self.advance();
-            let rhs = self.parse_compare()?;
+            let rhs = self.parse_membership()?;
             expr = Expr::BinOp(Box::new(expr), BinOpKind::And, Box::new(rhs));
         }
         Ok(expr)
+    }
+
+    fn parse_membership(&mut self) -> Result<Expr, String> {
+        let expr = self.parse_compare()?;
+        if self.allow_in_expr && self.curr == Token::In {
+            self.advance();
+            match &self.curr {
+                Token::Ident(name) => {
+                    let arr_name = name.clone();
+                    self.advance();
+                    Ok(Expr::In(Box::new(expr), arr_name))
+                }
+                _ => Err("expected array name after 'in'".to_string()),
+            }
+        } else {
+            Ok(expr)
+        }
     }
 
     fn parse_compare(&mut self) -> Result<Expr, String> {
@@ -458,6 +512,7 @@ impl Parser {
                 let expr = self.parse_unary()?;
                 match expr {
                     Expr::Ident(name) => Ok(Expr::Incr(name, false)),
+                    Expr::ArrayAccess(name, index) => Ok(Expr::ArrayIncr(name, index, false)),
                     _ => Err("invalid increment target".to_string()),
                 }
             }
@@ -466,6 +521,7 @@ impl Parser {
                 let expr = self.parse_unary()?;
                 match expr {
                     Expr::Ident(name) => Ok(Expr::Decr(name, false)),
+                    Expr::ArrayAccess(name, index) => Ok(Expr::ArrayDecr(name, index, false)),
                     _ => Err("invalid decrement target".to_string()),
                 }
             }
@@ -476,6 +532,9 @@ impl Parser {
                         self.advance();
                         match expr {
                             Expr::Ident(name) => Ok(Expr::Incr(name, true)),
+                            Expr::ArrayAccess(name, index) => {
+                                Ok(Expr::ArrayIncr(name, index, true))
+                            }
                             _ => Err("invalid increment target".to_string()),
                         }
                     }
@@ -483,6 +542,9 @@ impl Parser {
                         self.advance();
                         match expr {
                             Expr::Ident(name) => Ok(Expr::Decr(name, true)),
+                            Expr::ArrayAccess(name, index) => {
+                                Ok(Expr::ArrayDecr(name, index, true))
+                            }
                             _ => Err("invalid decrement target".to_string()),
                         }
                     }
